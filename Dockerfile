@@ -33,9 +33,11 @@ COPY --from=builder /app/shared/dist ./shared/dist
 COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/client/dist ./client/dist
 
-# Persistent volume for the scoreboard (matches fly.toml [mounts].destination)
+# Persistent storage for the scoreboard. The actual mount is configured by
+# the platform (Railway: dashboard → Volumes; Fly: fly.toml [mounts]).
+# We just prep the dir and point DATA_DIR at it so scores.ts knows where
+# to read/write.
 RUN mkdir -p /data && chown -R node:node /data
-VOLUME ["/data"]
 ENV DATA_DIR=/data
 
 USER node
