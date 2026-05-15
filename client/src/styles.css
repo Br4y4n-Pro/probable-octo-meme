@@ -2,7 +2,10 @@
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   color-scheme: dark;
-  background: #2a0d12;
+  /* Match the END of the body gradient (var(--bg-1)). This is what shows
+     under overscroll / rubber-band — when they didn't match, you saw a
+     coral line where the body ended and html bg started. */
+  background: #070204;
   color: #fbeae6;
 
   --bg-0: #170509;
@@ -34,19 +37,23 @@
 
 * { box-sizing: border-box; }
 
-html, body, #root { height: 100%; }
+html { background: var(--bg-1); min-height: 100%; }
+body, #root { min-height: 100vh; }
 body {
   margin: 0;
   color: var(--text);
   font-weight: 400;
   letter-spacing: -0.005em;
+  /* Gradient is attached to body (not viewport) so it stretches with content
+     on long pages. Rubber-band shows html bg = --bg-1, which matches the
+     gradient's bottom stop → no visible seam at any scroll position. */
   background:
     radial-gradient(ellipse 1200px 800px at 50% -10%, rgba(255, 122, 89, 0.28), transparent 60%),
     radial-gradient(ellipse 900px 600px at 100% 100%, rgba(244, 114, 182, 0.14), transparent 65%),
     radial-gradient(ellipse 800px 500px at 0% 100%, rgba(251, 191, 36, 0.10), transparent 65%),
     radial-gradient(ellipse 700px 400px at 0% 0%, rgba(255, 170, 130, 0.12), transparent 60%),
     linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
-  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 .app { min-height: 100vh; padding: 1.5rem; }
@@ -515,7 +522,34 @@ p { margin: 0.4rem 0; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  perspective: 1400px;
+}
+.board-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 0.7rem;
+  transform-origin: center center;
+  will-change: transform, opacity, filter;
+}
+.board-frame--attack {
+  animation: board-flip-attack 0.5s cubic-bezier(0.34, 1.1, 0.5, 1) both;
+}
+.board-frame--defense {
+  animation: board-flip-defense 0.5s cubic-bezier(0.34, 1.1, 0.5, 1) both;
+}
+@keyframes board-flip-attack {
+  0%   { opacity: 0; transform: rotateY(-26deg) translateX(-30px) scale(0.93); filter: blur(3px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: rotateY(0) translateX(0) scale(1); filter: blur(0); }
+}
+@keyframes board-flip-defense {
+  0%   { opacity: 0; transform: rotateY(26deg) translateX(30px) scale(0.93); filter: blur(3px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: rotateY(0) translateX(0) scale(1); filter: blur(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-frame--attack, .board-frame--defense { animation: none; }
 }
 .board-caption { color: var(--muted); font-size: 0.9rem; margin: 0; }
 

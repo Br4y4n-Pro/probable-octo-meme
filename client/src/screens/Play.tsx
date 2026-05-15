@@ -126,28 +126,33 @@ export function Play({ state, view, dispatch }: Props) {
       </nav>
 
       <div className="single-board">
-        <p className="board-caption">
-          {boardView === 'attack'
-            ? 'Haz clic en una celda para disparar'
-            : 'Aquí caen los disparos del rival'}
-        </p>
-        {boardView === 'attack' ? (
-          <Board
-            board={oppBoard}
-            size={state.size}
-            revealShips={false}
-            shotsOnBoard={shotsOnOppBoard}
-            interactive
-            onCellClick={handleShoot}
-          />
-        ) : (
-          <Board
-            board={myBoard}
-            size={state.size}
-            revealShips
-            shotsOnBoard={shotsOnMyBoard}
-          />
-        )}
+        <div
+          key={boardView}
+          className={`board-frame board-frame--${boardView}`}
+        >
+          <p className="board-caption">
+            {boardView === 'attack'
+              ? '🎯 Haz clic en una celda para disparar'
+              : '🛡️ Aquí caen los disparos del rival'}
+          </p>
+          {boardView === 'attack' ? (
+            <Board
+              board={oppBoard}
+              size={state.size}
+              revealShips={false}
+              shotsOnBoard={shotsOnOppBoard}
+              interactive
+              onCellClick={handleShoot}
+            />
+          ) : (
+            <Board
+              board={myBoard}
+              size={state.size}
+              revealShips
+              shotsOnBoard={shotsOnMyBoard}
+            />
+          )}
+        </div>
       </div>
 
       <div className="emote-bar">

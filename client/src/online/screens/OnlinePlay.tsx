@@ -47,10 +47,17 @@ export function OnlinePlay({
     null,
   );
 
-  // Reset view on turn change
+  // Auto-flip the board on turn change so the player always sees what matters:
+  //   - opponent's turn → show MY board (defense) so I watch their shots land
+  //   - my turn → switch to ATTACK with a brief delay so the opponent's last
+  //     shot animation has time to play on the defense view first
   useEffect(() => {
     setSentEmote(null);
-    if (myTurn) setBoardView('attack');
+    if (myTurn) {
+      const t = window.setTimeout(() => setBoardView('attack'), 1500);
+      return () => window.clearTimeout(t);
+    }
+    setBoardView('defense');
   }, [state.turn, myTurn]);
 
   // Play sounds for last shot
@@ -184,35 +191,42 @@ export function OnlinePlay({
       </nav>
 
       <div className="single-board">
-        <p className="board-caption">
-          {boardView === 'attack'
-            ? myTurn
-              ? 'Haz clic para disparar'
-              : 'Esperando al rival…'
-            : 'Aquí caen los disparos del rival'}
-        </p>
-        {boardView === 'attack' ? (
-          <Board
-            board={state.oppBoard}
-            size={size}
-            revealShips={false}
-            shotsOnBoard={state.shotsByMe}
-            interactive={myTurn}
-            onCellClick={(c) => void handleShoot(c)}
-            powerups={state.powerups[opp]}
-            consumedPowerupKeys={state.consumedPowerupKeys[opp]}
-            radarReveals={state.radarReveals}
-          />
-        ) : (
-          <Board
-            board={state.myBoard}
-            size={size}
-            revealShips
-            shotsOnBoard={state.shotsAtMe}
-            powerups={state.powerups[me]}
-            consumedPowerupKeys={state.consumedPowerupKeys[me]}
-          />
-        )}
+        <div
+          key={boardView}
+          className={`board-frame board-frame--${boardView}`}
+        >
+          <p className="board-caption">
+            {boardView === 'attack'
+              ? myTurn
+                ? '🎯 Haz clic para disparar'
+                : '⏳ Esperando al rival…'
+              : myTurn
+                ? '🛡️ Tu tablero — disparos recibidos'
+                : '👁️ El rival está apuntando — observa sus disparos'}
+          </p>
+          {boardView === 'attack' ? (
+            <Board
+              board={state.oppBoard}
+              size={size}
+              revealShips={false}
+              shotsOnBoard={state.shotsByMe}
+              interactive={myTurn}
+              onCellClick={(c) => void handleShoot(c)}
+              powerups={state.powerups[opp]}
+              consumedPowerupKeys={state.consumedPowerupKeys[opp]}
+              radarReveals={state.radarReveals}
+            />
+          ) : (
+            <Board
+              board={state.myBoard}
+              size={size}
+              revealShips
+              shotsOnBoard={state.shotsAtMe}
+              powerups={state.powerups[me]}
+              consumedPowerupKeys={state.consumedPowerupKeys[me]}
+            />
+          )}
+        </div>
       </div>
 
       <div className="emote-bar">
