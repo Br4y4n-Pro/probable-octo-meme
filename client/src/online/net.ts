@@ -1,19 +1,25 @@
 import { io as createIo, type Socket } from 'socket.io-client';
 import type {
+  AddSongRes,
   BoardSize,
   Cell,
   ClientToServerEvents,
   CreateRoomRes,
   EmoteReq,
   EmoteRes,
+  ImportPlaylistRes,
   JoinRoomRes,
   LeaderboardResponse,
+  ListRoomsRes,
+  MusicControlAction,
+  MusicControlRes,
   PlaceShipsRes,
   Player,
   QuickPlaceRes,
   ReadyRes,
   ReconnectRes,
   RematchRes,
+  RemoveSongRes,
   ServerToClientEvents,
   ShipPlacementInput,
   ShootRes,
@@ -81,6 +87,9 @@ export const api = {
   ): Promise<JoinRoomRes> {
     return emitAck<JoinRoomRes>(socket, 'join_room', { code, nickname });
   },
+  listRooms(socket: ServerSocket): Promise<ListRoomsRes> {
+    return emitAck<ListRoomsRes>(socket, 'list_rooms', {});
+  },
   reconnect(
     socket: ServerSocket,
     code: string,
@@ -116,6 +125,24 @@ export const api = {
   },
   leave(socket: ServerSocket): void {
     socket.emit('leave', {});
+  },
+  addSong(socket: ServerSocket, url: string): Promise<AddSongRes> {
+    return emitAck<AddSongRes>(socket, 'add_song', { url });
+  },
+  removeSong(socket: ServerSocket, songId: string): Promise<RemoveSongRes> {
+    return emitAck<RemoveSongRes>(socket, 'remove_song', { songId });
+  },
+  musicControl(
+    socket: ServerSocket,
+    action: MusicControlAction,
+  ): Promise<MusicControlRes> {
+    return emitAck<MusicControlRes>(socket, 'music_control', { action });
+  },
+  importPlaylist(
+    socket: ServerSocket,
+    urls: string[],
+  ): Promise<ImportPlaylistRes> {
+    return emitAck<ImportPlaylistRes>(socket, 'import_playlist', { urls });
   },
 };
 
@@ -179,6 +206,33 @@ export function loadNickname(): string {
     return localStorage.getItem(NICKNAME_KEY) ?? '';
   } catch {
     return '';
+  }
+}
+
+// ─── Playlist persistence ──────────────────────────────────────────────────
+// The room playlist is saved as a list of canonical youtu.be URLs so the user
+// can re-import it when creating a future room.
+
+const PLAYLIST_KEY = 'battlenaval:playlist:v1';
+
+export function saveStoredPlaylist(videoIds: string[]): void {
+  try {
+    const urls = videoIds.map((id) => `https://youtu.be/${id}`);
+    localStorage.setItem(PLAYLIST_KEY, JSON.stringify(urls));
+  } catch {
+    // ignored
+  }
+}
+
+export function loadStoredPlaylist(): string[] {
+  try {
+    const raw = localStorage.getItem(PLAYLIST_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((u): u is string => typeof u === 'string');
+  } catch {
+    return [];
   }
 }
 

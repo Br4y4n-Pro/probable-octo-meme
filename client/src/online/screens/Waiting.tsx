@@ -1,14 +1,39 @@
 import { useState } from 'react';
+import type {
+  AddSongRes,
+  MusicControlAction,
+  PlaybackState,
+  Player,
+  Song,
+} from '@battlenaval/shared';
 import { Avatar } from '../../components/Avatar.js';
+import { PlaylistPanel } from '../components/PlaylistPanel.js';
 
 type Props = {
   code: string;
   nickname: string;
   opponentPresent: boolean;
   onCancel: () => void;
+  playlist: Song[];
+  playback: PlaybackState;
+  myRole: Player;
+  onAddSong: (url: string) => Promise<AddSongRes>;
+  onRemoveSong: (songId: string) => void;
+  onMusicControl: (action: MusicControlAction) => void;
 };
 
-export function Waiting({ code, nickname, opponentPresent, onCancel }: Props) {
+export function Waiting({
+  code,
+  nickname,
+  opponentPresent,
+  onCancel,
+  playlist,
+  playback,
+  myRole,
+  onAddSong,
+  onRemoveSong,
+  onMusicControl,
+}: Props) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -50,6 +75,17 @@ export function Waiting({ code, nickname, opponentPresent, onCancel }: Props) {
           Cancelar
         </button>
       </div>
+
+      <PlaylistPanel
+        playlist={playlist}
+        playback={playback}
+        myRole={myRole}
+        isHost={myRole === 'A'}
+        onAddSong={onAddSong}
+        onRemoveSong={onRemoveSong}
+        onControl={onMusicControl}
+        variant="card"
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   NICKNAME_REGEX,
   PLACEMENT_TIMEOUT_MS,
   TURN_TIMEOUT_MS,
+  MAX_PLAYLIST_SONGS,
   type BoardSize,
   type Cell,
   type ClientToServerEvents,
@@ -25,15 +26,18 @@ import {
   type ShootRes,
   type ShipPlacementInput,
   type ShotInfo,
+  type Song,
   type SunkShipInfo,
   ROOM_CODE_REGEX,
 } from '@battlenaval/shared';
 import { incrementWin } from './scores.js';
 import type { Server, Socket } from 'socket.io';
 import { generateRoomCode, generateSessionToken } from './codes.js';
+import { parseYouTubeId } from './playlist.js';
 import {
   attachGuest,
   bindSocket,
+  buildPlaylistSnapshot,
   clearDisconnectTimer,
   clearPlacementTimer,
   clearTurnTimer,
@@ -42,6 +46,7 @@ import {
   getRoom,
   getRoomBySocket,
   isCodeTaken,
+  listOpenRooms,
   resetGame,
   setDisconnectTimer,
   setPlacementTimer,
@@ -53,6 +58,8 @@ import {
 
 const VALID_SIZES: BoardSize[] = [8, 10, 12, 15, 30];
 const DISCONNECT_GRACE_MS = 30_000;
+/** Socket.IO channel that every lobby-browsing client is subscribed to. */
+const LOBBY_CHANNEL = 'lobby';
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -60,6 +67,15 @@ type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 export function registerHandlers(io: TypedServer): void {
   io.on('connection', (socket: TypedSocket) => {
     console.log(`[io] connected ${socket.id}`);
+    // Fresh sockets start in the lobby until they create/join a room.
+    socket.join(LOBBY_CHANNEL);
+
+    socket.on('list_rooms', (_req, cb) => {
+      // (Re)subscribe to lobby push updates — covers clients that returned
+      // to the lobby after a finished or closed room.
+      socket.join(LOBBY_CHANNEL);
+      cb({ ok: true, rooms: listOpenRooms() });
+    });
 
     socket.on('create_room', (req, cb) => {
       try {
@@ -80,6 +96,7 @@ export function registerHandlers(io: TypedServer): void {
         const token = generateSessionToken();
         const room = createRoom(code, req.size, socket.id, token, nickname);
         socket.join(code);
+        socket.leave(LOBBY_CHANNEL);
         const res: CreateRoomRes = {
           ok: true,
           code: room.code,
@@ -89,6 +106,8 @@ export function registerHandlers(io: TypedServer): void {
           nickname,
         };
         cb(res);
+        // A new room just opened — tell everyone browsing the lobby.
+        broadcastOpenRooms(io);
       } catch (err) {
         console.error('[create_room] error', err);
         cb({ ok: false, reason: 'internal' });
@@ -126,6 +145,8 @@ export function registerHandlers(io: TypedServer): void {
         const token = generateSessionToken();
         attachGuest(room, socket.id, token, nickname);
         socket.join(room.code);
+        socket.leave(LOBBY_CHANNEL);
+        socket.emit('playlist_updated', buildPlaylistSnapshot(room));
         socket.to(room.code).emit('opponent_joined', { nickname });
         setPlacementTimer(room, PLACEMENT_TIMEOUT_MS, () => {
           if (room.phase === 'placement') {
@@ -142,6 +163,8 @@ export function registerHandlers(io: TypedServer): void {
           opponentNickname: room.players.A?.nickname ?? '',
         };
         cb(res);
+        // The room is now full — drop it from the lobby listing.
+        broadcastOpenRooms(io);
       } catch (err) {
         console.error('[join_room] error', err);
         cb({ ok: false, reason: 'not-found' });
@@ -166,6 +189,8 @@ export function registerHandlers(io: TypedServer): void {
         }
         bindSocket(room, req.role, socket.id);
         socket.join(room.code);
+        socket.leave(LOBBY_CHANNEL);
+        socket.emit('playlist_updated', buildPlaylistSnapshot(room));
         clearDisconnectTimer(room, req.role);
         socket.to(room.code).emit('opponent_reconnected', {});
         const snap = snapshotForReconnect(room, req.role);
@@ -401,6 +426,150 @@ export function registerHandlers(io: TypedServer): void {
       cb(res);
     });
 
+    socket.on('add_song', (req, cb) => {
+      const entry = getRoomBySocket(socket.id);
+      if (!entry) {
+        cb({ ok: false, reason: 'not-in-room' });
+        return;
+      }
+      const { room, role } = entry;
+      const videoId = parseYouTubeId(req.url ?? '');
+      if (!videoId) {
+        cb({ ok: false, reason: 'invalid-url' });
+        return;
+      }
+      if (room.playlist.length >= MAX_PLAYLIST_SONGS) {
+        cb({ ok: false, reason: 'playlist-full' });
+        return;
+      }
+      if (room.playlist.some((s) => s.videoId === videoId)) {
+        cb({ ok: false, reason: 'duplicate' });
+        return;
+      }
+      const song: Song = {
+        id: generateSessionToken(),
+        videoId,
+        title: '',
+        addedBy: role,
+      };
+      room.playlist.push(song);
+      io.to(room.code).emit('playlist_updated', buildPlaylistSnapshot(room));
+      cb({ ok: true, song });
+    });
+
+    socket.on('remove_song', (req, cb) => {
+      const entry = getRoomBySocket(socket.id);
+      if (!entry) {
+        cb({ ok: false, reason: 'not-in-room' });
+        return;
+      }
+      const { room } = entry;
+      const idx = room.playlist.findIndex((s) => s.id === req.songId);
+      if (idx === -1) {
+        cb({ ok: false, reason: 'not-found' });
+        return;
+      }
+      room.playlist.splice(idx, 1);
+      const pb = room.playback;
+      if (idx === pb.currentIndex) {
+        // Removed the playing track — stop and clamp.
+        pb.playing = false;
+        pb.rev += 1;
+        pb.currentIndex = Math.min(pb.currentIndex, room.playlist.length - 1);
+      } else if (idx < pb.currentIndex) {
+        pb.currentIndex -= 1;
+      }
+      io.to(room.code).emit('playlist_updated', buildPlaylistSnapshot(room));
+      cb({ ok: true });
+    });
+
+    socket.on('music_control', (req, cb) => {
+      const entry = getRoomBySocket(socket.id);
+      if (!entry) {
+        cb({ ok: false, reason: 'not-in-room' });
+        return;
+      }
+      const { room, role } = entry;
+      if (role !== 'A') {
+        cb({ ok: false, reason: 'not-host' });
+        return;
+      }
+      if (room.playlist.length === 0) {
+        cb({ ok: false, reason: 'empty' });
+        return;
+      }
+      const pb = room.playback;
+      const last = room.playlist.length - 1;
+      const action = req.action;
+      switch (action.kind) {
+        case 'play':
+          if (pb.currentIndex < 0) pb.currentIndex = 0;
+          pb.playing = true;
+          pb.startedAt = Date.now();
+          break;
+        case 'pause':
+          pb.playing = false;
+          break;
+        case 'select': {
+          const i = action.index;
+          if (i < 0 || i > last) {
+            cb({ ok: false, reason: 'empty' });
+            return;
+          }
+          pb.currentIndex = i;
+          pb.playing = true;
+          pb.startedAt = Date.now();
+          break;
+        }
+        case 'next':
+          pb.currentIndex = pb.currentIndex >= last ? 0 : pb.currentIndex + 1;
+          pb.playing = true;
+          pb.startedAt = Date.now();
+          break;
+        case 'prev':
+          pb.currentIndex =
+            pb.currentIndex <= 0 ? last : pb.currentIndex - 1;
+          pb.playing = true;
+          pb.startedAt = Date.now();
+          break;
+      }
+      pb.rev += 1;
+      io.to(room.code).emit('playlist_updated', buildPlaylistSnapshot(room));
+      cb({ ok: true });
+    });
+
+    socket.on('import_playlist', (req, cb) => {
+      const entry = getRoomBySocket(socket.id);
+      if (!entry) {
+        cb({ ok: false, reason: 'not-in-room' });
+        return;
+      }
+      const { room, role } = entry;
+      if (role !== 'A') {
+        cb({ ok: false, reason: 'not-host' });
+        return;
+      }
+      let added = 0;
+      const urls = Array.isArray(req.urls) ? req.urls : [];
+      for (const url of urls) {
+        if (room.playlist.length >= MAX_PLAYLIST_SONGS) break;
+        const videoId = parseYouTubeId(url ?? '');
+        if (!videoId) continue;
+        if (room.playlist.some((s) => s.videoId === videoId)) continue;
+        room.playlist.push({
+          id: generateSessionToken(),
+          videoId,
+          title: '',
+          addedBy: role,
+        });
+        added += 1;
+      }
+      if (added > 0) {
+        io.to(room.code).emit('playlist_updated', buildPlaylistSnapshot(room));
+      }
+      cb({ ok: true, added });
+    });
+
     socket.on('rematch', (_req, cb) => {
       const entry = getRoomBySocket(socket.id);
       if (!entry) {
@@ -461,6 +630,7 @@ export function registerHandlers(io: TypedServer): void {
       if (room.phase === 'waiting') {
         // Host left before guest joined — destroy the room
         deleteRoom(room.code);
+        broadcastOpenRooms(io);
         return;
       }
       // Inform opponent and start a grace timer
@@ -488,6 +658,13 @@ function closeRoomAndNotify(
   // Detach any remaining sockets from the channel
   io.in(room.code).socketsLeave(room.code);
   deleteRoom(room.code);
+  // If a still-open room was closed, refresh every lobby browser's list.
+  broadcastOpenRooms(io);
+}
+
+/** Push the current open-room listing to every client browsing the lobby. */
+function broadcastOpenRooms(io: TypedServer): void {
+  io.to(LOBBY_CHANNEL).emit('rooms_updated', { rooms: listOpenRooms() });
 }
 
 /**

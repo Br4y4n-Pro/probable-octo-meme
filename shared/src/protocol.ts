@@ -51,6 +51,22 @@ export type JoinRoomRes =
     }
   | { ok: false; reason: JoinRoomReason };
 
+// ─── Open-room listing (lobby browser) ─────────────────────
+// Rooms still in the 'waiting' phase (host present, no guest yet) are
+// listed so players can join with a click instead of typing a code.
+
+export type OpenRoom = {
+  code: string;
+  hostNickname: string;
+  size: BoardSize;
+  /** Epoch ms the room was created — used for sorting newest-first. */
+  createdAt: number;
+};
+export type ListRoomsReq = Record<string, never>;
+export type ListRoomsRes = { ok: true; rooms: OpenRoom[] };
+/** Pushed to everyone in the lobby whenever the open-room set changes. */
+export type RoomsUpdatedEvent = { rooms: OpenRoom[] };
+
 export type ShotInfo = {
   cell: Cell;
   outcome: ShotOutcome;
@@ -189,11 +205,76 @@ export const PLACEMENT_TIMEOUT_MS = 5 * 60_000;
 export type LeaderboardEntry = { nickname: string; wins: number };
 export type LeaderboardResponse = { top: LeaderboardEntry[]; total: number };
 
+// ─── Music playlist ────────────────────────────────────────
+// A shared, host-controlled YouTube playlist scoped to a room. The playlist
+// persists across rematches played in the same room.
+
+export const MAX_PLAYLIST_SONGS = 30;
+
+export type Song = {
+  /** Stable id used for list keys and removal. */
+  id: string;
+  /** Canonical 11-char YouTube video id. */
+  videoId: string;
+  /** Display title; '' server-side — the client resolves it. */
+  title: string;
+  /** Which player added the song. */
+  addedBy: Player;
+};
+
+/** Host-controlled playback state, mirrored to every client. */
+export type PlaybackState = {
+  /** Index into the playlist's songs[]; -1 when nothing is selected. */
+  currentIndex: number;
+  playing: boolean;
+  /** Monotonic counter, bumped on every host control action (sync signal). */
+  rev: number;
+  /** Epoch ms when `playing` last became true (coarse position estimate). */
+  startedAt: number;
+};
+
+export type PlaylistSnapshot = { songs: Song[]; playback: PlaybackState };
+
+export type AddSongReason =
+  | 'invalid-url'
+  | 'not-in-room'
+  | 'playlist-full'
+  | 'duplicate';
+export type AddSongReq = { url: string };
+export type AddSongRes =
+  | { ok: true; song: Song }
+  | { ok: false; reason: AddSongReason };
+
+export type RemoveSongReq = { songId: string };
+export type RemoveSongRes =
+  | { ok: true }
+  | { ok: false; reason: 'not-found' | 'not-in-room' };
+
+export type MusicControlAction =
+  | { kind: 'play' }
+  | { kind: 'pause' }
+  | { kind: 'select'; index: number }
+  | { kind: 'next' }
+  | { kind: 'prev' };
+export type MusicControlReq = { action: MusicControlAction };
+export type MusicControlRes =
+  | { ok: true }
+  | { ok: false; reason: 'not-host' | 'not-in-room' | 'empty' };
+
+export type ImportPlaylistReq = { urls: string[] };
+export type ImportPlaylistRes =
+  | { ok: true; added: number }
+  | { ok: false; reason: 'not-host' | 'not-in-room' };
+
+/** Full playlist + playback snapshot pushed whenever either changes. */
+export type PlaylistUpdatedEvent = PlaylistSnapshot;
+
 // ─── Socket.IO typed event maps ────────────────────────────
 
 export interface ClientToServerEvents {
   create_room: (req: CreateRoomReq, cb: (res: CreateRoomRes) => void) => void;
   join_room: (req: JoinRoomReq, cb: (res: JoinRoomRes) => void) => void;
+  list_rooms: (req: ListRoomsReq, cb: (res: ListRoomsRes) => void) => void;
   reconnect_session: (req: ReconnectReq, cb: (res: ReconnectRes) => void) => void;
   place_ships: (req: PlaceShipsReq, cb: (res: PlaceShipsRes) => void) => void;
   quick_place: (req: QuickPlaceReq, cb: (res: QuickPlaceRes) => void) => void;
@@ -202,6 +283,13 @@ export interface ClientToServerEvents {
   send_emote: (req: EmoteReq, cb: (res: EmoteRes) => void) => void;
   rematch: (req: RematchReq, cb: (res: RematchRes) => void) => void;
   leave: (req: LeaveReq) => void;
+  add_song: (req: AddSongReq, cb: (res: AddSongRes) => void) => void;
+  remove_song: (req: RemoveSongReq, cb: (res: RemoveSongRes) => void) => void;
+  music_control: (req: MusicControlReq, cb: (res: MusicControlRes) => void) => void;
+  import_playlist: (
+    req: ImportPlaylistReq,
+    cb: (res: ImportPlaylistRes) => void,
+  ) => void;
 }
 
 export interface ServerToClientEvents {
@@ -217,6 +305,8 @@ export interface ServerToClientEvents {
   rematch_requested: (e: RematchRequestedEvent) => void;
   rematch_started: (e: RematchStartedEvent) => void;
   room_closed: (e: RoomClosedEvent) => void;
+  playlist_updated: (e: PlaylistUpdatedEvent) => void;
+  rooms_updated: (e: RoomsUpdatedEvent) => void;
 }
 
 export const ROOM_CODE_REGEX = /^[A-HJ-NP-Z]{3}-[2-9]{3}$/;

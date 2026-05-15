@@ -4,11 +4,12 @@ import {
   NICKNAME_REGEX,
   ROOM_CODE_REGEX,
   type BoardSize,
+  type OpenRoom,
   getFleet,
 } from '@battlenaval/shared';
 import type { ConnectionStatus, OnlineView } from '../state.js';
 import { Avatar } from '../../components/Avatar.js';
-import { loadNickname, saveNickname } from '../net.js';
+import { loadNickname, loadStoredPlaylist, saveNickname } from '../net.js';
 
 const SIZE_LABELS: Record<BoardSize, string> = {
   8: 'Pequeño',
@@ -21,8 +22,10 @@ const SIZE_LABELS: Record<BoardSize, string> = {
 type Props = {
   view: Extract<OnlineView, { kind: 'lobby' }>;
   connection: ConnectionStatus;
-  onCreate: (size: BoardSize, nickname: string) => void;
+  openRooms: OpenRoom[];
+  onCreate: (size: BoardSize, nickname: string, importPlaylist: boolean) => void;
   onJoin: (code: string, nickname: string) => void;
+  onRefreshRooms: () => void;
   onCodeChange: (v: string) => void;
   onBack: () => void;
 };
@@ -30,13 +33,17 @@ type Props = {
 export function Lobby({
   view,
   connection,
+  openRooms,
   onCreate,
   onJoin,
+  onRefreshRooms,
   onCodeChange,
   onBack,
 }: Props) {
   const [size, setSize] = useState<BoardSize>(10);
   const [nickname, setNickname] = useState<string>(() => loadNickname());
+  const [storedPlaylist] = useState<string[]>(() => loadStoredPlaylist());
+  const [importPlaylist, setImportPlaylist] = useState(true);
   const trimmedNick = nickname.trim();
   const nickValid = NICKNAME_REGEX.test(trimmedNick);
   const disabled = connection !== 'connected' || !nickValid;
@@ -109,11 +116,30 @@ export function Lobby({
             <strong>{fleet.length} barcos</strong> ·{' '}
             {fleet.reduce((a, p) => a + p.shape.length, 0)} celdas
           </p>
+          {storedPlaylist.length > 0 && (
+            <label className="lobby-import">
+              <input
+                type="checkbox"
+                checked={importPlaylist}
+                onChange={(e) => setImportPlaylist(e.target.checked)}
+              />
+              <span>
+                🎵 Importar mi playlist guardada ({storedPlaylist.length}{' '}
+                {storedPlaylist.length === 1 ? 'canción' : 'canciones'})
+              </span>
+            </label>
+          )}
           <button
             type="button"
             className="btn btn--primary btn--big lobby-btn-wide"
             disabled={disabled}
-            onClick={() => onCreate(size, trimmedNick)}
+            onClick={() =>
+              onCreate(
+                size,
+                trimmedNick,
+                importPlaylist && storedPlaylist.length > 0,
+              )
+            }
           >
             Crear sala
           </button>
@@ -151,6 +177,54 @@ export function Lobby({
           </button>
         </section>
       </div>
+
+      <section className="card lobby-rooms">
+        <div className="lobby-rooms__head">
+          <h2>🛰️ Salas abiertas</h2>
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            onClick={onRefreshRooms}
+            disabled={connection !== 'connected'}
+          >
+            ↻ Actualizar
+          </button>
+        </div>
+        {openRooms.length === 0 ? (
+          <p className="muted small">
+            No hay salas esperando jugadores ahora mismo. Crea una o pídele el
+            código a tu rival.
+          </p>
+        ) : (
+          <ul className="room-list">
+            {openRooms.map((r) => (
+              <li key={r.code}>
+                <button
+                  type="button"
+                  className="room-list__item"
+                  disabled={disabled}
+                  title={
+                    nickValid
+                      ? `Unirme a la sala de ${r.hostNickname}`
+                      : 'Escribe tu nombre primero'
+                  }
+                  onClick={() => onJoin(r.code, trimmedNick)}
+                >
+                  <Avatar nickname={r.hostNickname} size={38} />
+                  <span className="room-list__info">
+                    <span className="room-list__host">{r.hostNickname}</span>
+                    <span className="muted small">
+                      {r.size}×{r.size} · {SIZE_LABELS[r.size]} ·{' '}
+                      <span className="room-list__code">{r.code}</span>
+                    </span>
+                  </span>
+                  <span className="room-list__join">Unirme →</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <button
         type="button"

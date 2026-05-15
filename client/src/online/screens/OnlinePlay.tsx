@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { otherPlayer, type Cell } from '@battlenaval/shared';
+import {
+  otherPlayer,
+  type AddSongRes,
+  type Cell,
+  type MusicControlAction,
+} from '@battlenaval/shared';
 import { Board } from '../../components/Board.js';
 import { EmotePicker } from '../../components/EmotePicker.js';
+import { PlaylistPanel } from '../components/PlaylistPanel.js';
 import {
   playBigExplosion,
   playEmote,
@@ -18,7 +24,7 @@ import { Avatar } from '../../components/Avatar.js';
 import { SunkPopup } from '../../components/SunkPopup.js';
 import { RadarPopup } from '../../components/RadarPopup.js';
 import { EmoteIcon } from '../../components/EmoteIcon.js';
-import { SmileySticker } from '@phosphor-icons/react';
+import { MusicNotes, SmileySticker } from '@phosphor-icons/react';
 
 type Props = {
   state: OnlineState;
@@ -27,6 +33,9 @@ type Props = {
   onSendEmote: (entry: EmoteEntry) => Promise<void> | void;
   onClearEmote: () => void;
   onLeave: () => void;
+  onAddSong: (url: string) => Promise<AddSongRes>;
+  onRemoveSong: (songId: string) => void;
+  onMusicControl: (action: MusicControlAction) => void;
 };
 
 type BoardView = 'attack' | 'defense';
@@ -38,6 +47,9 @@ export function OnlinePlay({
   onSendEmote,
   onClearEmote,
   onLeave,
+  onAddSong,
+  onRemoveSong,
+  onMusicControl,
 }: Props) {
   const me = state.session?.role ?? 'A';
   const opp = otherPlayer(me);
@@ -46,6 +58,7 @@ export function OnlinePlay({
 
   const [boardView, setBoardView] = useState<BoardView>('attack');
   const [emoteOpen, setEmoteOpen] = useState(false);
+  const [musicOpen, setMusicOpen] = useState(false);
   const [sentEmote, setSentEmote] = useState<EmoteEntry | null>(null);
   const [sunkAlert, setSunkAlert] = useState<{ name: string; id: number } | null>(
     null,
@@ -262,6 +275,16 @@ export function OnlinePlay({
         >
           <SmileySticker size={18} weight="fill" /> Emote
         </button>
+        <button
+          type="button"
+          className={`btn btn--icon ${musicOpen ? 'btn--icon-active' : ''}`}
+          onClick={() => setMusicOpen((o) => !o)}
+        >
+          <MusicNotes size={18} weight="fill" /> Música
+          {state.playlist.length > 0 && (
+            <span className="emote-badge">{state.playlist.length}</span>
+          )}
+        </button>
         {sentEmote && (
           <span className="emote-sent">
             Enviado: <EmoteIcon code={sentEmote.code} size={18} /> {sentEmote.label}
@@ -274,6 +297,21 @@ export function OnlinePlay({
         onPick={(entry) => void handleSendEmote(entry)}
         onClose={() => setEmoteOpen(false)}
       />
+
+      {musicOpen && (
+        <div className="playlist-drawer-wrap">
+          <PlaylistPanel
+            playlist={state.playlist}
+            playback={state.playback}
+            myRole={me}
+            isHost={me === 'A'}
+            onAddSong={onAddSong}
+            onRemoveSong={onRemoveSong}
+            onControl={onMusicControl}
+            variant="drawer"
+          />
+        </div>
+      )}
 
       {sunkAlert && <SunkPopup key={sunkAlert.id} shipName={sunkAlert.name} />}
 

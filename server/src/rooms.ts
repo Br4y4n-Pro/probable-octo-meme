@@ -4,8 +4,12 @@ import {
   otherPlayer,
   type BoardSize,
   type GameState,
+  type OpenRoom,
+  type PlaybackState,
   type Player,
+  type PlaylistSnapshot,
   type Powerup,
+  type Song,
 } from '@battlenaval/shared';
 
 export type RoomPhase = 'waiting' | 'placement' | 'playing' | 'finished';
@@ -40,6 +44,10 @@ export type Room = {
   powerups: Record<Player, Powerup[]>;
   /** Cell keys ("x,y") of powerups that have already been collected. */
   consumedPowerups: Record<Player, Set<string>>;
+  /** Shared YouTube playlist for the room. Persists across rematches. */
+  playlist: Song[];
+  /** Host-controlled playback state mirrored to both clients. */
+  playback: PlaybackState;
 };
 
 const rooms = new Map<string, Room>();
@@ -52,6 +60,26 @@ export function isCodeTaken(code: string): boolean {
 
 export function getRoom(code: string): Room | undefined {
   return rooms.get(code);
+}
+
+/**
+ * Rooms still waiting for a second player — what the lobby browser shows.
+ * Sorted newest-first so the freshest rooms appear at the top.
+ */
+export function listOpenRooms(): OpenRoom[] {
+  const open: OpenRoom[] = [];
+  for (const room of rooms.values()) {
+    if (room.phase !== 'waiting' || room.players.B) continue;
+    const host = room.players.A;
+    if (!host) continue;
+    open.push({
+      code: room.code,
+      hostNickname: host.nickname,
+      size: room.size,
+      createdAt: room.createdAt,
+    });
+  }
+  return open.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function getRoomBySocket(socketId: string): { room: Room; role: Player } | undefined {
@@ -93,6 +121,8 @@ export function createRoom(
     placementTimer: null,
     powerups: { A: [], B: [] },
     consumedPowerups: { A: new Set(), B: new Set() },
+    playlist: [],
+    playback: { currentIndex: -1, playing: false, rev: 0, startedAt: 0 },
   };
   rooms.set(code, room);
   socketIndex.set(hostSocketId, { code, role: 'A' });
@@ -248,7 +278,16 @@ export function snapshotForReconnect(
   };
 }
 
-/** Reset the room's game state for a rematch — keeps players and sockets. */
+/** Build a JSON-safe playlist + playback snapshot for the network. */
+export function buildPlaylistSnapshot(room: Room): PlaylistSnapshot {
+  return { songs: room.playlist, playback: room.playback };
+}
+
+/**
+ * Reset the room's game state for a rematch — keeps players and sockets.
+ * NOTE: room.playlist and room.playback are intentionally NOT reset — the
+ * music carries over between games played in the same room.
+ */
 export function resetGame(room: Room): void {
   room.game = createGame(room.size);
   room.phase = 'placement';

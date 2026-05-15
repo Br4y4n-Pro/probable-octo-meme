@@ -10,14 +10,17 @@ import {
   type BoardSize,
   type Cell,
   type GameOverReason,
+  type OpenRoom,
   type PieceDef,
   type PlacedShip,
+  type PlaybackState,
   type Player,
   type Powerup,
   type Rotation,
   type ShipPlacementInput,
   type ShotInfo,
   type ShotOutcome,
+  type Song,
   type SunkShipInfo,
 } from '@battlenaval/shared';
 
@@ -95,6 +98,12 @@ export type OnlineState = {
   radarReveals: Cell[];
   /** Increments on each new radar reveal — drives the popup/sound feedback. */
   radarPing: number;
+  /** Shared room playlist — mirrored from the server. */
+  playlist: Song[];
+  /** Host-controlled playback state — mirrored from the server. */
+  playback: PlaybackState;
+  /** Open rooms waiting for a second player — shown in the lobby browser. */
+  openRooms: OpenRoom[];
 };
 
 export const initialOnlineState: OnlineState = {
@@ -119,6 +128,9 @@ export const initialOnlineState: OnlineState = {
   consumedPowerupKeys: { A: new Set(), B: new Set() },
   radarReveals: [],
   radarPing: 0,
+  playlist: [],
+  playback: { currentIndex: -1, playing: false, rev: 0, startedAt: 0 },
+  openRooms: [],
 };
 
 export type OnlineAction =
@@ -164,6 +176,9 @@ export type OnlineAction =
   | { type: 'room_closed'; reason: string }
   | { type: 'emote_received'; code: string; label: string; from: Player }
   | { type: 'emote_clear' }
+  | { type: 'playlist_updated'; songs: Song[]; playback: PlaybackState }
+  | { type: 'rooms_updated'; rooms: OpenRoom[] }
+  | { type: 'song_title_resolved'; songId: string; title: string }
   // Local placement
   | { type: 'select_piece'; pieceId: string | null }
   | { type: 'rotate_selection' }
@@ -504,6 +519,27 @@ export function onlineReducer(
 
     case 'emote_clear':
       return { ...state, incomingEmote: null };
+
+    case 'playlist_updated': {
+      // The server sends songs with title ''. Preserve any titles the client
+      // already resolved (matched by song id) so they don't flicker away.
+      const prevTitles = new Map(state.playlist.map((s) => [s.id, s.title]));
+      const songs = action.songs.map((s) =>
+        s.title ? s : { ...s, title: prevTitles.get(s.id) ?? '' },
+      );
+      return { ...state, playlist: songs, playback: action.playback };
+    }
+
+    case 'rooms_updated':
+      return { ...state, openRooms: action.rooms };
+
+    case 'song_title_resolved':
+      return {
+        ...state,
+        playlist: state.playlist.map((s) =>
+          s.id === action.songId ? { ...s, title: action.title } : s,
+        ),
+      };
 
     case 'select_piece':
       if (state.view.kind !== 'placement') return state;

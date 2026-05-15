@@ -914,6 +914,68 @@ p { margin: 0.4rem 0; }
   margin: 0;
 }
 
+/* ─── Lobby: open-room browser ─────────────────────────────── */
+.lobby-rooms {
+  max-width: 900px;
+  width: 100%;
+  margin: 1rem 0 0;
+  padding: 1.1rem 1.25rem;
+  text-align: left;
+}
+.lobby-rooms__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.lobby-rooms__head h2 { margin: 0; font-size: 1.1rem; }
+.room-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.room-list__item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  background: var(--panel-2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.18s, transform 0.1s;
+}
+.room-list__item:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.room-list__item:disabled { opacity: 0.5; cursor: not-allowed; }
+.room-list__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+.room-list__host { font-weight: 700; }
+.room-list__code {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.05em;
+}
+.room-list__join {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
 /* ─── Waiting screen ───────────────────────────────────────── */
 .screen--waiting, .screen--placement-waiting {
   display: flex;
@@ -1471,5 +1533,290 @@ p { margin: 0.4rem 0; }
   .sunk-popup { animation-duration: 0.5s; }
   .ship-flame { animation: none; }
   .marker { animation: marker-in 0.2s ease-out; }
+}
+
+/* ─── Music playlist ───────────────────────────────────────── */
+
+/* Mini-player pinned bottom-left (the dedication owns bottom-right). */
+.music-miniplayer {
+  position: fixed;
+  left: 0.6rem;
+  bottom: 0.6rem;
+  z-index: 140;
+  width: 240px;
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.music-miniplayer__video {
+  position: relative;
+  width: 240px;
+  height: 135px;
+  background: #000;
+  transition: height 0.2s ease;
+}
+.music-miniplayer--collapsed .music-miniplayer__video { height: 0; }
+.music-miniplayer__frame,
+.music-miniplayer__frame iframe {
+  width: 240px;
+  height: 135px;
+  border: 0;
+  display: block;
+}
+.music-miniplayer__tap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background: rgba(7, 2, 4, 0.84);
+  color: var(--text);
+  border: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.music-miniplayer__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+}
+.music-miniplayer__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.74rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.music-miniplayer__collapse {
+  display: flex;
+  padding: 0.15rem;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+.music-miniplayer__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem 0.45rem;
+}
+.music-miniplayer__controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.music-miniplayer__controls .music-miniplayer__play {
+  width: 38px;
+  height: 38px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a0a06;
+}
+.music-miniplayer__hostnote {
+  padding: 0 0.5rem 0.45rem;
+  font-size: 0.68rem;
+  color: var(--muted-2);
+  text-align: center;
+}
+
+/* Playlist panel — used as a card (Waiting) and a drawer (in-game). */
+.playlist-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+}
+.playlist-panel--card {
+  margin-top: 1rem;
+  width: min(420px, 100%);
+}
+.playlist-panel--drawer {
+  width: min(440px, 100%);
+  margin: 0.6rem auto 0;
+  animation: playlist-drawer-in 0.2s ease-out;
+}
+.playlist-drawer-wrap {
+  display: flex;
+  justify-content: center;
+}
+@keyframes playlist-drawer-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.playlist-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.95rem;
+}
+.playlist-panel__count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted-2);
+}
+.playlist-add {
+  display: flex;
+  gap: 0.4rem;
+}
+.playlist-add__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-0);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.playlist-add__input:focus { outline: 2px solid var(--accent-soft); }
+.playlist-error {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #fecaca;
+}
+.playlist-songs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.playlist-song {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+.playlist-song--current {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.playlist-song__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.playlist-song__main:disabled { cursor: default; }
+.playlist-song__index {
+  width: 1.4rem;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.playlist-song__name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.82rem;
+}
+.playlist-song__by {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.playlist-song__remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  border: 0;
+  color: var(--muted-2);
+  cursor: pointer;
+}
+.playlist-song__remove:hover { color: #fecaca; }
+.playlist-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.playlist-panel__note { margin: 0; }
+
+/* Count badge on the in-game "Música" toggle. */
+.emote-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  margin-left: 0.1rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a0a06;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.btn--icon-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Lobby playlist-import checkbox. */
+.lobby-import {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0.1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.lobby-import input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 560px) {
+  .music-miniplayer { width: 180px; }
+  .music-miniplayer__video,
+  .music-miniplayer__frame,
+  .music-miniplayer__frame iframe { width: 180px; height: 101px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .playlist-panel--drawer { animation: none; }
+  .music-miniplayer__video { transition: none; }
 }
 
