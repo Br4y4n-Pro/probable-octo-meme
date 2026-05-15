@@ -5,6 +5,7 @@ import {
   type BoardSize,
   type GameState,
   type Player,
+  type Powerup,
 } from '@battlenaval/shared';
 
 export type RoomPhase = 'waiting' | 'placement' | 'playing' | 'finished';
@@ -35,6 +36,10 @@ export type Room = {
   turnTimer: NodeJS.Timeout | null;
   /** Fires if placement drags on past PLACEMENT_TIMEOUT_MS. */
   placementTimer: NodeJS.Timeout | null;
+  /** Powerups placed on each player's water cells at game start. */
+  powerups: Record<Player, Powerup[]>;
+  /** Cell keys ("x,y") of powerups that have already been collected. */
+  consumedPowerups: Record<Player, Set<string>>;
 };
 
 const rooms = new Map<string, Room>();
@@ -86,6 +91,8 @@ export function createRoom(
     turnDeadline: null,
     turnTimer: null,
     placementTimer: null,
+    powerups: { A: [], B: [] },
+    consumedPowerups: { A: new Set(), B: new Set() },
   };
   rooms.set(code, room);
   socketIndex.set(hostSocketId, { code, role: 'A' });
@@ -247,6 +254,8 @@ export function resetGame(room: Room): void {
   room.phase = 'placement';
   clearTurnTimer(room);
   clearPlacementTimer(room);
+  room.powerups = { A: [], B: [] };
+  room.consumedPowerups = { A: new Set(), B: new Set() };
   if (room.players.A) {
     room.players.A.ready = false;
     room.players.A.placed = false;

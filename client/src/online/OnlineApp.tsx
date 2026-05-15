@@ -115,6 +115,7 @@ export function OnlineApp({ onExit }: Props) {
         type: 'game_started',
         firstTurn: e.firstTurn,
         turnDeadline: e.turnDeadline,
+        powerups: e.powerups,
       }),
     );
     socket.on('shot_result', (e) =>
@@ -126,7 +127,11 @@ export function OnlineApp({ onExit }: Props) {
         ...(e.sunkShip ? { sunkShip: e.sunkShip } : {}),
         nextTurn: e.nextTurn,
         ...(e.turnDeadline !== undefined ? { turnDeadline: e.turnDeadline } : {}),
+        ...(e.consumedPowerup ? { consumedPowerup: e.consumedPowerup } : {}),
       }),
+    );
+    socket.on('radar_reveal', (e) =>
+      dispatch({ type: 'radar_reveal', cell: e.cell }),
     );
     socket.on('game_over', (e) =>
       dispatch({ type: 'game_over', winner: e.winner, reason: e.reason }),

@@ -199,6 +199,9 @@ export function OnlinePlay({
             shotsOnBoard={state.shotsByMe}
             interactive={myTurn}
             onCellClick={(c) => void handleShoot(c)}
+            powerups={state.powerups[opp]}
+            consumedPowerupKeys={state.consumedPowerupKeys[opp]}
+            radarReveals={state.radarReveals}
           />
         ) : (
           <Board
@@ -206,6 +209,8 @@ export function OnlinePlay({
             size={size}
             revealShips
             shotsOnBoard={state.shotsAtMe}
+            powerups={state.powerups[me]}
+            consumedPowerupKeys={state.consumedPowerupKeys[me]}
           />
         )}
       </div>

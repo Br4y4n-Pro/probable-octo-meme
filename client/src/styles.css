@@ -745,13 +745,18 @@ p { margin: 0.4rem 0; }
   align-items: center;
   text-align: center;
 }
+.screen--lobby h1 {
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+  margin: 0.25rem 0 0.15rem;
+}
+.screen--lobby > .lede { margin: 0 0 0.85rem; font-size: 0.95rem; }
 .lobby-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem;
+  gap: 1rem;
   max-width: 900px;
   width: 100%;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 @media (max-width: 760px) {
   .lobby-grid { grid-template-columns: 1fr; }
@@ -759,22 +764,30 @@ p { margin: 0.4rem 0; }
 .lobby-card {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.6rem;
   text-align: left;
-  padding: 1.5rem;
+  padding: 1.1rem 1.25rem;
   margin: 0;
   max-width: none;
 }
-.lobby-card h2 { margin-bottom: 0; }
-.size-grid--compact { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; margin: 0; }
-.size-grid--compact .size-option { padding: 0.65rem 0.5rem; border-radius: 10px; }
-.size-grid--compact .size-option__num { font-size: 1.15rem; }
-.size-grid--compact .size-option__label { font-size: 0.8rem; }
-.size-grid--compact .size-option__fleet { font-size: 0.7rem; }
+.lobby-card h2 { margin-bottom: 0; font-size: 1.1rem; }
+.size-grid--compact {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+  margin: 0;
+}
+.size-grid--compact .size-option {
+  padding: 0.45rem 0.3rem;
+  border-radius: 8px;
+  gap: 0.1rem;
+}
+.size-grid--compact .size-option__num { font-size: 0.95rem; }
+.size-grid--compact .size-option__label { font-size: 0.7rem; }
+.size-grid--compact .size-option__fleet { font-size: 0.62rem; }
 
-.lobby-fleet-summary { margin: 0; }
-.lobby-btn-wide { width: 100%; margin-top: 0.5rem; }
-.lobby-back { margin-top: 1.5rem; }
+.lobby-fleet-summary { margin: 0; font-size: 0.8rem; }
+.lobby-btn-wide { width: 100%; margin-top: 0.4rem; }
+.lobby-back { margin-top: 1rem; margin-bottom: 0.5rem; }
 
 .lobby-code-field {
   display: flex;
@@ -784,15 +797,15 @@ p { margin: 0.4rem 0; }
 .lobby-code-input {
   font: inherit;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-align: center;
   background: var(--panel-2);
   color: var(--text);
   border: 1.5px solid var(--border);
   border-radius: 10px;
-  padding: 0.65rem 0.5rem;
+  padding: 0.55rem 0.5rem;
   text-transform: uppercase;
   transition: border-color 0.18s;
 }
@@ -916,25 +929,25 @@ p { margin: 0.4rem 0; }
 /* ─── Lobby nickname card ──────────────────────────────────── */
 .lobby-nick-card {
   max-width: 640px;
-  margin: 0.75rem auto 1rem;
-  padding: 1.1rem 1.4rem;
+  margin: 0.4rem auto 0.5rem;
+  padding: 0.85rem 1.1rem;
 }
 .lobby-nick-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 .lobby-nick-row .avatar { border: 2px solid var(--accent); }
 .lobby-nick-field { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
 .lobby-nick-input {
   font: inherit;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 500;
   background: var(--panel-2);
   color: var(--text);
   border: 1.5px solid var(--border);
   border-radius: 10px;
-  padding: 0.6rem 0.75rem;
+  padding: 0.5rem 0.7rem;
   transition: border-color 0.18s;
 }
 .lobby-nick-input:focus {
@@ -1186,6 +1199,46 @@ p { margin: 0.4rem 0; }
     left: 1rem;
     box-shadow: var(--shadow-md);
   }
+}
+
+/* ─── Powerups (radar prototype) ───────────────────────────── */
+.powerup {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 110%;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(252, 211, 77, 0.7));
+  animation: powerup-bob 1.6s ease-in-out infinite;
+}
+.powerup--consumed {
+  filter: drop-shadow(0 0 4px rgba(147, 197, 253, 0.6));
+  animation: none;
+  opacity: 0.7;
+}
+@keyframes powerup-bob {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-12%) scale(1.06); }
+}
+
+.radar-mark {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 110%;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.85));
+  animation: radar-pulse 1.4s ease-in-out infinite;
+}
+@keyframes radar-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.18); }
 }
 
 /* ─── Sunk popup (dramatic centered banner) ────────────────── */

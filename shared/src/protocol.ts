@@ -136,10 +136,20 @@ export type OpponentReconnectedEvent = Record<string, never>;
 export type OpponentReadyEvent = Record<string, never>;
 export type RematchRequestedEvent = { by: Player };
 export type RematchStartedEvent = Record<string, never>;
+// ─── Powerups (prototype: Radar only) ──────────────────────
+
+export type PowerupKind = 'radar';
+export type Powerup = { kind: PowerupKind; cell: Cell };
+
 export type GameStartedEvent = {
   firstTurn: Player;
   /** Epoch ms when the first turn's clock runs out. */
   turnDeadline: number;
+  /**
+   * Powerups placed on each player's water cells. Both players receive both
+   * arrays so each can render the opponent's powerups on their attack view.
+   */
+  powerups: Record<Player, Powerup[]>;
 };
 export type ShotResultEvent = {
   byPlayer: Player;
@@ -150,6 +160,13 @@ export type ShotResultEvent = {
   nextTurn: Player;
   /** Epoch ms when nextTurn's clock runs out. Absent if game just ended. */
   turnDeadline?: number;
+  /** Set if this shot also collected a powerup at the same cell. */
+  consumedPowerup?: Powerup;
+};
+/** Sent privately to the shooter when they collect a radar powerup. */
+export type RadarRevealEvent = {
+  /** A previously-unshot ship cell on the opponent's board. */
+  cell: Cell;
 };
 export type GameOverReason = 'normal' | 'turn-timeout';
 export type GameOverEvent = { winner: Player; reason: GameOverReason };
@@ -194,6 +211,7 @@ export interface ServerToClientEvents {
   opponent_ready: (e: OpponentReadyEvent) => void;
   game_started: (e: GameStartedEvent) => void;
   shot_result: (e: ShotResultEvent) => void;
+  radar_reveal: (e: RadarRevealEvent) => void;
   emote: (e: EmoteEvent) => void;
   game_over: (e: GameOverEvent) => void;
   rematch_requested: (e: RematchRequestedEvent) => void;

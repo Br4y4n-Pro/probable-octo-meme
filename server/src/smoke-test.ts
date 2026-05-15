@@ -161,6 +161,14 @@ async function main(): Promise<void> {
     typeof startedA.turnDeadline === 'number' && startedA.turnDeadline > Date.now(),
     'game_started includes turnDeadline in the future',
   );
+  assert(
+    Array.isArray(startedA.powerups?.A) && Array.isArray(startedA.powerups?.B),
+    'game_started includes powerups for both players',
+  );
+  assert(
+    startedA.powerups.A.length >= 1 && startedA.powerups.B.length >= 1,
+    `each board has at least 1 powerup (A=${startedA.powerups.A.length}, B=${startedA.powerups.B.length})`,
+  );
   console.log(`✓ game_started, firstTurn=${startedA.firstTurn}`);
 
   // ─── 5. First shot is broadcast to both ──────────────────

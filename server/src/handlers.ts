@@ -9,12 +9,14 @@ import {
   PLACEMENT_TIMEOUT_MS,
   TURN_TIMEOUT_MS,
   type BoardSize,
+  type Cell,
   type ClientToServerEvents,
   type CreateRoomRes,
   type EmoteRes,
   type JoinRoomRes,
   type PlaceShipsRes,
   type Player,
+  type Powerup,
   type QuickPlaceRes,
   type ReadyRes,
   type ReconnectRes,
@@ -275,7 +277,17 @@ export function registerHandlers(io: TypedServer): void {
         const turnDeadline = setTurnTimer(room, TURN_TIMEOUT_MS, () =>
           handleTurnTimeout(io, room),
         );
-        io.to(room.code).emit('game_started', { firstTurn, turnDeadline });
+        // Place 1 radar powerup on each player's water cells.
+        room.powerups = {
+          A: placePowerups(room.game.boards.A.width, room.game.boards.A.ships, 1),
+          B: placePowerups(room.game.boards.B.width, room.game.boards.B.ships, 1),
+        };
+        room.consumedPowerups = { A: new Set(), B: new Set() };
+        io.to(room.code).emit('game_started', {
+          firstTurn,
+          turnDeadline,
+          powerups: { A: room.powerups.A, B: room.powerups.B },
+        });
       } else {
         socket.to(room.code).emit('opponent_ready', {});
       }
@@ -329,6 +341,19 @@ export function registerHandlers(io: TypedServer): void {
         ? setTurnTimer(room, TURN_TIMEOUT_MS, () => handleTurnTimeout(io, room))
         : undefined;
 
+      // Did this shot collect a powerup on the opponent's board?
+      const oppPowerups = room.powerups[opp];
+      const cellK = cellKey(req.cell);
+      const matchingPowerup = oppPowerups.find(
+        (p) =>
+          p.cell.x === req.cell.x &&
+          p.cell.y === req.cell.y &&
+          !room.consumedPowerups[opp].has(cellK),
+      );
+      if (matchingPowerup) {
+        room.consumedPowerups[opp].add(cellK);
+      }
+
       const payload = {
         byPlayer: role,
         cell: req.cell,
@@ -336,8 +361,17 @@ export function registerHandlers(io: TypedServer): void {
         ...(sunkShip ? { sunkShip } : {}),
         nextTurn: nextGame.turn,
         ...(turnDeadline !== undefined ? { turnDeadline } : {}),
+        ...(matchingPowerup ? { consumedPowerup: matchingPowerup } : {}),
       };
       io.to(room.code).emit('shot_result', payload);
+
+      // Radar payoff: reveal a random unshot opponent ship cell to the shooter.
+      if (matchingPowerup && matchingPowerup.kind === 'radar') {
+        const revealed = pickUnshotShipCell(room, role, opp);
+        if (revealed) {
+          io.to(socket.id).emit('radar_reveal', { cell: revealed });
+        }
+      }
 
       if (result.gameOver) {
         room.phase = 'finished';
@@ -454,6 +488,49 @@ function closeRoomAndNotify(
   // Detach any remaining sockets from the channel
   io.in(room.code).socketsLeave(room.code);
   deleteRoom(room.code);
+}
+
+/**
+ * Place `count` powerups on random water cells (not on any ship) of a board.
+ * Returns an empty array if there's not enough free space.
+ */
+function placePowerups(
+  size: number,
+  ships: { cells: Cell[] }[],
+  count: number,
+): Powerup[] {
+  const occupied = new Set<string>();
+  for (const s of ships) for (const c of s.cells) occupied.add(`${c.x},${c.y}`);
+  const free: Cell[] = [];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (!occupied.has(`${x},${y}`)) free.push({ x, y });
+    }
+  }
+  const placed: Powerup[] = [];
+  for (let i = 0; i < count && free.length > 0; i++) {
+    const idx = Math.floor(Math.random() * free.length);
+    const [cell] = free.splice(idx, 1);
+    if (cell) placed.push({ kind: 'radar', cell });
+  }
+  return placed;
+}
+
+/** Pick a random opponent ship cell that the shooter has not yet shot. */
+function pickUnshotShipCell(
+  room: Room,
+  shooter: Player,
+  target: Player,
+): Cell | null {
+  const shotKeys = new Set(Object.keys(room.game.shots[shooter]));
+  const candidates: Cell[] = [];
+  for (const ship of room.game.boards[target].ships) {
+    for (const c of ship.cells) {
+      if (!shotKeys.has(`${c.x},${c.y}`)) candidates.push(c);
+    }
+  }
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
 }
 
 function handleTurnTimeout(io: TypedServer, room: Room): void {

@@ -4,6 +4,7 @@ import {
   type Board as BoardModel,
   type Cell,
   type PlacedShip,
+  type Powerup,
   type ShotRecord,
 } from '@battlenaval/shared';
 import { paletteForShip, shipGradient, SUNK_PALETTE } from '../ship-styles.js';
@@ -20,6 +21,12 @@ export type BoardProps = {
   onCellClick?: (cell: Cell) => void;
   onCellHover?: (cell: Cell | null) => void;
   interactive?: boolean;
+  /** Powerups visible on this board. */
+  powerups?: Powerup[];
+  /** Cell keys ("x,y") of powerups that have already been used. */
+  consumedPowerupKeys?: Set<string>;
+  /** Cells flagged by radar as containing a ship (shooter-only view). */
+  radarReveals?: Cell[];
 };
 
 type CellShipInfo = {
@@ -39,7 +46,20 @@ export function Board({
   onCellClick,
   onCellHover,
   interactive = false,
+  powerups,
+  consumedPowerupKeys,
+  radarReveals,
 }: BoardProps) {
+  const powerupByKey = useMemo(() => {
+    const m = new Map<string, Powerup>();
+    if (powerups) for (const p of powerups) m.set(cellKey(p.cell), p);
+    return m;
+  }, [powerups]);
+  const radarSet = useMemo(() => {
+    const s = new Set<string>();
+    if (radarReveals) for (const c of radarReveals) s.add(cellKey(c));
+    return s;
+  }, [radarReveals]);
   const shipInfoByCell = useMemo(() => {
     const map = new Map<string, CellShipInfo>();
     for (const ship of board.ships) {
@@ -116,6 +136,14 @@ export function Board({
         if (mid && mid.x === x && mid.y === y) showFlame = true;
       }
 
+      const powerup = powerupByKey.get(key);
+      const powerupConsumed =
+        powerup !== undefined && (consumedPowerupKeys?.has(key) ?? false);
+      // Don't render the powerup icon if the cell has been shot — the shot
+      // marker takes precedence and consumedPowerupKeys.has handled it anyway.
+      const showPowerup = powerup !== undefined && !shot;
+      const showRadar = radarSet.has(key) && !shot;
+
       cells.push(
         <div
           key={key}
@@ -127,6 +155,21 @@ export function Board({
           {showFlame && (
             <span className="ship-flame" aria-hidden>
               🔥
+            </span>
+          )}
+          {showPowerup && (
+            <span
+              className={`powerup powerup--${powerup.kind}${
+                powerupConsumed ? ' powerup--consumed' : ''
+              }`}
+              aria-hidden
+            >
+              {powerupConsumed ? '📡' : '🎁'}
+            </span>
+          )}
+          {showRadar && (
+            <span className="radar-mark" aria-hidden>
+              🔍
             </span>
           )}
           {shot && (

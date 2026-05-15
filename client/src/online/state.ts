@@ -13,6 +13,7 @@ import {
   type PieceDef,
   type PlacedShip,
   type Player,
+  type Powerup,
   type Rotation,
   type ShipPlacementInput,
   type ShotInfo,
@@ -86,6 +87,12 @@ export type OnlineState = {
   /** True after the opponent has requested a rematch. */
   opponentWantsRematch: boolean;
   incomingEmote: IncomingEmote | null;
+  /** Powerups placed on each player's board, keyed by player role. */
+  powerups: Record<Player, Powerup[]>;
+  /** Cell keys ("x,y") of powerups that were already collected, per board. */
+  consumedPowerupKeys: Record<Player, Set<string>>;
+  /** Opponent ship cells revealed to me by my radar. */
+  radarReveals: Cell[];
 };
 
 export const initialOnlineState: OnlineState = {
@@ -106,6 +113,9 @@ export const initialOnlineState: OnlineState = {
   meWantsRematch: false,
   opponentWantsRematch: false,
   incomingEmote: null,
+  powerups: { A: [], B: [] },
+  consumedPowerupKeys: { A: new Set(), B: new Set() },
+  radarReveals: [],
 };
 
 export type OnlineAction =
@@ -130,7 +140,12 @@ export type OnlineAction =
   | { type: 'rematch_local' }
   | { type: 'rematch_requested_by_opponent' }
   | { type: 'rematch_started' }
-  | { type: 'game_started'; firstTurn: Player; turnDeadline: number }
+  | {
+      type: 'game_started';
+      firstTurn: Player;
+      turnDeadline: number;
+      powerups: Record<Player, Powerup[]>;
+    }
   | {
       type: 'shot_result';
       byPlayer: Player;
@@ -139,7 +154,9 @@ export type OnlineAction =
       sunkShip?: SunkShipInfo;
       nextTurn: Player;
       turnDeadline?: number;
+      consumedPowerup?: Powerup;
     }
+  | { type: 'radar_reveal'; cell: Cell }
   | { type: 'game_over'; winner: Player; reason: GameOverReason }
   | { type: 'room_closed'; reason: string }
   | { type: 'emote_received'; code: string; label: string; from: Player }
@@ -337,6 +354,9 @@ export function onlineReducer(
         opponentReady: false,
         meWantsRematch: false,
         opponentWantsRematch: false,
+        powerups: { A: [], B: [] },
+        consumedPowerupKeys: { A: new Set(), B: new Set() },
+        radarReveals: [],
         view: {
           kind: 'placement',
           selectedPieceId: fleet[0]?.id ?? null,
@@ -352,17 +372,46 @@ export function onlineReducer(
         turn: action.firstTurn,
         turnDeadline: action.turnDeadline,
         opponentReady: true,
+        powerups: action.powerups,
+        consumedPowerupKeys: { A: new Set(), B: new Set() },
+        radarReveals: [],
         view: { kind: 'playing', lastShot: null },
       };
 
     case 'shot_result': {
       if (!state.session) return state;
       const me = state.session.role;
+      const opp = otherPlayer(me);
       let myBoard = state.myBoard;
       let oppBoard = state.oppBoard;
       const newShotsByMe = { ...state.shotsByMe };
       const newShotsAtMe = { ...state.shotsAtMe };
       const key = cellKey(action.cell);
+
+      // Mark the powerup consumed on whichever board it lived (the opponent
+      // of the shooter — same as the "target" board for this shot).
+      let consumedPowerupKeys = state.consumedPowerupKeys;
+      let radarReveals = state.radarReveals;
+      if (action.consumedPowerup) {
+        const target = otherPlayer(action.byPlayer);
+        consumedPowerupKeys = {
+          ...state.consumedPowerupKeys,
+          [target]: new Set([
+            ...state.consumedPowerupKeys[target],
+            cellKey(action.consumedPowerup.cell),
+          ]),
+        };
+      }
+
+      // Once we actually shoot a cell revealed by radar, drop the radar marker
+      // so we don't render two overlays on the same cell.
+      if (action.byPlayer === me) {
+        radarReveals = state.radarReveals.filter(
+          (c) => c.x !== action.cell.x || c.y !== action.cell.y,
+        );
+      }
+      // (we'll use opp below for shot bookkeeping)
+      void opp;
       const shotEntry: ShotInfo = action.sunkShip
         ? { cell: action.cell, outcome: action.outcome, sunkShipId: action.sunkShip.pieceId }
         : { cell: action.cell, outcome: action.outcome };
@@ -394,11 +443,25 @@ export function onlineReducer(
         shotsAtMe: newShotsAtMe,
         turn: action.nextTurn,
         turnDeadline: action.turnDeadline ?? null,
+        consumedPowerupKeys,
+        radarReveals,
         view:
           state.view.kind === 'playing'
             ? { ...state.view, lastShot }
             : state.view,
       };
+    }
+
+    case 'radar_reveal': {
+      // Avoid duplicates if the same cell ever arrives twice.
+      if (
+        state.radarReveals.some(
+          (c) => c.x === action.cell.x && c.y === action.cell.y,
+        )
+      ) {
+        return state;
+      }
+      return { ...state, radarReveals: [...state.radarReveals, action.cell] };
     }
 
     case 'game_over':
@@ -537,6 +600,11 @@ export function onlineReducer(
       return { ...state, view: { ...state.view, submitted: true } };
 
     case 'ready_submitted':
+      // Guard against a race where `game_started` already arrived (when we're
+      // the second to ready, the server emits game_started before the ack).
+      // Without this guard the view rolls back from 'playing' to
+      // 'placement_waiting' and the game appears stuck.
+      if (state.view.kind !== 'placement') return state;
       return { ...state, view: { kind: 'placement_waiting' } };
 
     case 'reconnect_snapshot': {
