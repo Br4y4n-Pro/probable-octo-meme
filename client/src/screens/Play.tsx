@@ -3,6 +3,7 @@ import { otherPlayer, type Player } from '@battlenaval/shared';
 import type { Action, AppState, EmoteEntry } from '../state.js';
 import { Board } from '../components/Board.js';
 import { EmotePicker } from '../components/EmotePicker.js';
+import { SunkPopup } from '../components/SunkPopup.js';
 import {
   playBigExplosion,
   playExplosion,
@@ -36,6 +37,9 @@ export function Play({ state, view, dispatch }: Props) {
   const [boardView, setBoardView] = useState<BoardView>('attack');
   const [emoteOpen, setEmoteOpen] = useState(false);
   const [sentEmote, setSentEmote] = useState<EmoteEntry | null>(null);
+  const [sunkAlert, setSunkAlert] = useState<{ name: string; id: number } | null>(
+    null,
+  );
 
   // Reset view to attack at start of every turn
   useEffect(() => {
@@ -49,6 +53,17 @@ export function Play({ state, view, dispatch }: Props) {
     if (view.lastShot.outcome === 'miss') playSplash();
     else if (view.lastShot.outcome === 'hit') playExplosion();
     else if (view.lastShot.outcome === 'sunk') playBigExplosion();
+  }, [view.lastShot]);
+
+  // Trigger the centered "¡HUNDIDO!" overlay when a ship goes down.
+  useEffect(() => {
+    if (!view.lastShot || view.lastShot.outcome !== 'sunk') return;
+    setSunkAlert({
+      name: view.lastShot.sunkShipName ?? 'un barco',
+      id: Date.now(),
+    });
+    const t = window.setTimeout(() => setSunkAlert(null), 1600);
+    return () => window.clearTimeout(t);
   }, [view.lastShot]);
 
   const banner = useMemo(() => {
@@ -155,6 +170,8 @@ export function Play({ state, view, dispatch }: Props) {
         onPick={handleSendEmote}
         onClose={() => setEmoteOpen(false)}
       />
+
+      {sunkAlert && <SunkPopup key={sunkAlert.id} shipName={sunkAlert.name} />}
     </div>
   );
 }

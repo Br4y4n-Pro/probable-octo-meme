@@ -14,6 +14,7 @@ import type { OnlineState, OnlineView, LastShot } from '../state.js';
 import { TurnTimer } from '../components/TurnTimer.js';
 import { DisconnectBanner } from '../components/DisconnectBanner.js';
 import { Avatar } from '../../components/Avatar.js';
+import { SunkPopup } from '../../components/SunkPopup.js';
 
 type Props = {
   state: OnlineState;
@@ -42,6 +43,9 @@ export function OnlinePlay({
   const [boardView, setBoardView] = useState<BoardView>('attack');
   const [emoteOpen, setEmoteOpen] = useState(false);
   const [sentEmote, setSentEmote] = useState<EmoteEntry | null>(null);
+  const [sunkAlert, setSunkAlert] = useState<{ name: string; id: number } | null>(
+    null,
+  );
 
   // Reset view on turn change
   useEffect(() => {
@@ -56,6 +60,15 @@ export function OnlinePlay({
     if (ls.outcome === 'miss') playSplash();
     else if (ls.outcome === 'hit') playExplosion();
     else if (ls.outcome === 'sunk') playBigExplosion();
+  }, [view.lastShot]);
+
+  // Sunk popup (both players see it — drama is shared)
+  useEffect(() => {
+    const ls = view.lastShot;
+    if (!ls || ls.outcome !== 'sunk') return;
+    setSunkAlert({ name: ls.sunkShipName ?? 'un barco', id: Date.now() });
+    const t = window.setTimeout(() => setSunkAlert(null), 1600);
+    return () => window.clearTimeout(t);
   }, [view.lastShot]);
 
   // Play emote sound when one arrives
@@ -217,6 +230,8 @@ export function OnlinePlay({
         onPick={(entry) => void handleSendEmote(entry)}
         onClose={() => setEmoteOpen(false)}
       />
+
+      {sunkAlert && <SunkPopup key={sunkAlert.id} shipName={sunkAlert.name} />}
     </div>
   );
 }

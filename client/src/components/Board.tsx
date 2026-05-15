@@ -108,6 +108,14 @@ export function Board({
         if (info.ship.sunk) shipClasses += ' ship-piece--sunk';
       }
 
+      // Render a flame on the middle cell of a sunk ship so it's clearly
+      // "on fire" without spamming every cell with the same emoji.
+      let showFlame = false;
+      if (info && info.ship.sunk && (revealShips || info.ship.sunk)) {
+        const mid = info.ship.cells[Math.floor(info.ship.cells.length / 2)];
+        if (mid && mid.x === x && mid.y === y) showFlame = true;
+      }
+
       cells.push(
         <div
           key={key}
@@ -116,6 +124,11 @@ export function Board({
           onMouseEnter={onCellHover ? () => onCellHover(c) : undefined}
         >
           {showShip && <div className={shipClasses} style={shipStyle} />}
+          {showFlame && (
+            <span className="ship-flame" aria-hidden>
+              🔥
+            </span>
+          )}
           {shot && (
             <div className={`marker marker--${shot.outcome}`}>
               {shot.outcome === 'miss' ? (
