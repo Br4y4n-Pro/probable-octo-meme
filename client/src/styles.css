@@ -930,6 +930,15 @@ p { margin: 0.4rem 0; }
   margin-bottom: 0.6rem;
 }
 .lobby-rooms__head h2 { margin: 0; font-size: 1.1rem; }
+.lobby-rooms__hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+}
 .room-list {
   list-style: none;
   margin: 0;
@@ -1537,31 +1546,48 @@ p { margin: 0.4rem 0; }
 
 /* ─── Music playlist ───────────────────────────────────────── */
 
-/* Mini-player pinned bottom-left (the dedication owns bottom-right). */
+/* Mini-player — starts bottom-left (the dedication owns bottom-right) but is
+   freely draggable; while dragging it gets inline left/top coordinates. */
 .music-miniplayer {
   position: fixed;
   left: 0.6rem;
   bottom: 0.6rem;
   z-index: 140;
-  width: 240px;
+  width: clamp(168px, 56vw, 240px);
+  max-width: calc(100vw - 1.2rem);
   background: var(--panel-solid);
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
   overflow: hidden;
 }
+.music-miniplayer--dragging {
+  box-shadow: var(--shadow-lg);
+  opacity: 0.96;
+}
+/* Hidden while the full playlist panel is open — the iframe stays mounted
+   (audio keeps playing), it's just not shown or interactive. */
+.music-miniplayer--hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+/* Dragging via pointer capture — keep the iframe from swallowing the move. */
+.music-miniplayer--dragging .music-miniplayer__video { pointer-events: none; }
 .music-miniplayer__video {
   position: relative;
-  width: 240px;
-  height: 135px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   background: #000;
-  transition: height 0.2s ease;
+  transition: aspect-ratio 0.2s ease;
 }
-.music-miniplayer--collapsed .music-miniplayer__video { height: 0; }
+.music-miniplayer--collapsed .music-miniplayer__video {
+  aspect-ratio: auto;
+  height: 0;
+}
 .music-miniplayer__frame,
 .music-miniplayer__frame iframe {
-  width: 240px;
-  height: 135px;
+  width: 100%;
+  height: 100%;
   border: 0;
   display: block;
 }
@@ -1583,8 +1609,16 @@ p { margin: 0.4rem 0; }
 .music-miniplayer__bar {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.5rem;
+  gap: 0.3rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.3rem;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.music-miniplayer--dragging .music-miniplayer__bar { cursor: grabbing; }
+.music-miniplayer__grip {
+  flex-shrink: 0;
+  color: var(--muted-2);
 }
 .music-miniplayer__title {
   flex: 1;
@@ -1597,11 +1631,32 @@ p { margin: 0.4rem 0; }
 }
 .music-miniplayer__collapse {
   display: flex;
-  padding: 0.15rem;
-  background: transparent;
-  border: 0;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
   color: var(--muted);
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.music-miniplayer__collapse:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+/* When collapsed this is the "show video again" button — make it pop. */
+.music-miniplayer__collapse--expand {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a0a06;
+}
+.music-miniplayer__collapse--expand:hover {
+  background: var(--accent-hover);
+  color: #1a0a06;
 }
 .music-miniplayer__controls {
   display: flex;
@@ -1809,12 +1864,6 @@ p { margin: 0.4rem 0; }
   accent-color: var(--accent);
 }
 
-@media (max-width: 560px) {
-  .music-miniplayer { width: 180px; }
-  .music-miniplayer__video,
-  .music-miniplayer__frame,
-  .music-miniplayer__frame iframe { width: 180px; height: 101px; }
-}
 @media (prefers-reduced-motion: reduce) {
   .playlist-panel--drawer { animation: none; }
   .music-miniplayer__video { transition: none; }

@@ -3,6 +3,7 @@ import type { MusicControlAction, PlaybackState, Song } from '@battlenaval/share
 import {
   CaretDown,
   CaretUp,
+  DotsSixVertical,
   Pause,
   Play,
   SkipBack,
@@ -15,25 +16,74 @@ type Props = {
   playback: PlaybackState;
   isHost: boolean;
   onControl: (action: MusicControlAction) => void;
+  /**
+   * Hide the player visually (without unmounting it — the iframe stays alive
+   * so the audio keeps playing) while the full playlist panel is on screen.
+   */
+  hidden: boolean;
 };
 
+type Pos = { x: number; y: number };
+
+const POS_KEY = 'battlenaval:miniplayer-pos:v1';
+
+function loadPos(): Pos | null {
+  try {
+    const raw = localStorage.getItem(POS_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as unknown;
+    if (
+      p &&
+      typeof p === 'object' &&
+      typeof (p as Pos).x === 'number' &&
+      typeof (p as Pos).y === 'number'
+    ) {
+      return p as Pos;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function savePos(p: Pos): void {
+  try {
+    localStorage.setItem(POS_KEY, JSON.stringify(p));
+  } catch {
+    // ignored
+  }
+}
+
 /**
- * A small, always-mounted YouTube player pinned to the corner of the app.
- * It mirrors the host-controlled `playback` state: the host's controls send
- * socket actions, followers just watch. Mounted at the app root so the iframe
- * survives view transitions and the audio never restarts.
+ * A small, always-mounted YouTube player. It mirrors the host-controlled
+ * `playback` state and can be dragged anywhere on screen by its title bar.
+ * Mounted at the app root so the iframe survives view transitions and the
+ * audio never restarts.
  */
 export function MusicMiniPlayer({
   playlist,
   playback,
   isHost,
   onControl,
+  hidden,
 }: Props) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const hostElRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YT.Player | null>(null);
   const [ready, setReady] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  // Free-drag position. `null` → anchored to the default corner via CSS.
+  const [pos, setPos] = useState<Pos | null>(() => loadPos());
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+  const latestPosRef = useRef<Pos | null>(pos);
 
   // Idempotency: only re-apply the host's command when `rev` advances, and
   // only reload the iframe when the actual video id changes.
@@ -100,6 +150,71 @@ export function MusicMiniPlayer({
     };
   }, []);
 
+  // ─── Dragging ──────────────────────────────────────────────────────────
+  // Keep the player fully inside the viewport.
+  const clampPos = (x: number, y: number): Pos => {
+    const el = rootRef.current;
+    const w = el?.offsetWidth ?? 240;
+    const h = el?.offsetHeight ?? 200;
+    const maxX = Math.max(0, window.innerWidth - w);
+    const maxY = Math.max(0, window.innerHeight - h);
+    return {
+      x: Math.min(Math.max(0, x), maxX),
+      y: Math.min(Math.max(0, y), maxY),
+    };
+  };
+
+  // On mount (and whenever the viewport resizes) keep a saved position valid.
+  useEffect(() => {
+    if (pos) setPos((p) => (p ? clampPos(p.x, p.y) : p));
+    const onResize = () =>
+      setPos((p) => (p ? clampPos(p.x, p.y) : p));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onBarPointerDown = (e: React.PointerEvent) => {
+    // Ignore non-primary buttons and clicks on the controls (collapse, etc.).
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    const el = rootRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: rect.left,
+      originY: rect.top,
+    };
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+
+  const onBarPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const next = clampPos(
+      d.originX + (e.clientX - d.startX),
+      d.originY + (e.clientY - d.startY),
+    );
+    latestPosRef.current = next;
+    setPos(next);
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignored
+    }
+    if (latestPosRef.current) savePos(latestPosRef.current);
+  };
+
   // Apply the shared playback state to the iframe.
   useEffect(() => {
     const player = playerRef.current;
@@ -164,11 +279,20 @@ export function MusicMiniPlayer({
 
   const title = current ? current.title || current.videoId : 'Sin pista';
 
+  const style: React.CSSProperties | undefined = pos
+    ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' }
+    : undefined;
+
   return (
     <div
+      ref={rootRef}
       className={`music-miniplayer ${
         collapsed ? 'music-miniplayer--collapsed' : ''
+      } ${dragging ? 'music-miniplayer--dragging' : ''} ${
+        hidden ? 'music-miniplayer--hidden' : ''
       }`}
+      style={style}
+      aria-hidden={hidden}
     >
       <div className="music-miniplayer__video">
         <div ref={hostElRef} className="music-miniplayer__frame" />
@@ -183,17 +307,35 @@ export function MusicMiniPlayer({
           </button>
         )}
       </div>
-      <div className="music-miniplayer__bar">
+      <div
+        className="music-miniplayer__bar"
+        onPointerDown={onBarPointerDown}
+        onPointerMove={onBarPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        <DotsSixVertical
+          size={15}
+          weight="bold"
+          className="music-miniplayer__grip"
+        />
         <span className="music-miniplayer__title" title={title}>
           {title}
         </span>
         <button
           type="button"
-          className="music-miniplayer__collapse"
+          className={`music-miniplayer__collapse ${
+            collapsed ? 'music-miniplayer__collapse--expand' : ''
+          }`}
           onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? 'Expandir' : 'Minimizar'}
+          aria-label={collapsed ? 'Mostrar video' : 'Minimizar video'}
+          title={collapsed ? 'Mostrar video' : 'Minimizar video'}
         >
-          {collapsed ? <CaretUp size={14} /> : <CaretDown size={14} />}
+          {collapsed ? (
+            <CaretUp size={16} weight="bold" />
+          ) : (
+            <CaretDown size={16} weight="bold" />
+          )}
         </button>
       </div>
       {isHost ? (

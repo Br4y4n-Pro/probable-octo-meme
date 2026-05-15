@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import type { AddSongRes, MusicControlAction } from '@battlenaval/shared';
 import { unlockAudio } from '../sound.js';
 import {
@@ -34,6 +41,9 @@ export function OnlineApp({ onExit }: Props) {
   const [state, dispatch] = useReducer(onlineReducer, initialOnlineState);
   const socketRef = useRef<ServerSocket | null>(null);
   const sessionRef = useRef<StoredSession | null>(null);
+  // Whether the in-game playlist drawer is open. Lifted here so the root-level
+  // mini-player can hide itself while that panel is shown.
+  const [musicDrawerOpen, setMusicDrawerOpen] = useState(false);
 
   // Mirror session to a ref so socket handlers always see the latest token
   useEffect(() => {
@@ -432,6 +442,8 @@ export function OnlineApp({ onExit }: Props) {
         onAddSong={onAddSong}
         onRemoveSong={onRemoveSong}
         onMusicControl={onMusicControl}
+        musicOpen={musicDrawerOpen}
+        onToggleMusic={() => setMusicDrawerOpen((o) => !o)}
       />
     );
   } else if (view.kind === 'gameover') {
@@ -470,6 +482,10 @@ export function OnlineApp({ onExit }: Props) {
           playback={state.playback}
           isHost={state.session.role === 'A'}
           onControl={onMusicControl}
+          hidden={
+            view.kind === 'waiting' ||
+            (view.kind === 'playing' && musicDrawerOpen)
+          }
         />
       )}
     </div>

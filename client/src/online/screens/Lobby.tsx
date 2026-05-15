@@ -196,6 +196,17 @@ export function Lobby({
             código a tu rival.
           </p>
         ) : (
+          <>
+            {!nickValid && (
+              <p className="lobby-rooms__hint">
+                ✏️ Escribe tu nombre arriba para poder unirte a una sala.
+              </p>
+            )}
+            {connection !== 'connected' && nickValid && (
+              <p className="lobby-rooms__hint">
+                ⏳ Sin conexión al servidor — espera a reconectar.
+              </p>
+            )}
           <ul className="room-list">
             {openRooms.map((r) => (
               <li key={r.code}>
@@ -223,6 +234,7 @@ export function Lobby({
               </li>
             ))}
           </ul>
+          </>
         )}
       </section>
 

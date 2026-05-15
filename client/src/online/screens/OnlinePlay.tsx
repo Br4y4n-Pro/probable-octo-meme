@@ -36,6 +36,9 @@ type Props = {
   onAddSong: (url: string) => Promise<AddSongRes>;
   onRemoveSong: (songId: string) => void;
   onMusicControl: (action: MusicControlAction) => void;
+  /** Whether the playlist drawer is open (lifted to OnlineApp). */
+  musicOpen: boolean;
+  onToggleMusic: () => void;
 };
 
 type BoardView = 'attack' | 'defense';
@@ -50,6 +53,8 @@ export function OnlinePlay({
   onAddSong,
   onRemoveSong,
   onMusicControl,
+  musicOpen,
+  onToggleMusic,
 }: Props) {
   const me = state.session?.role ?? 'A';
   const opp = otherPlayer(me);
@@ -58,7 +63,6 @@ export function OnlinePlay({
 
   const [boardView, setBoardView] = useState<BoardView>('attack');
   const [emoteOpen, setEmoteOpen] = useState(false);
-  const [musicOpen, setMusicOpen] = useState(false);
   const [sentEmote, setSentEmote] = useState<EmoteEntry | null>(null);
   const [sunkAlert, setSunkAlert] = useState<{ name: string; id: number } | null>(
     null,
@@ -278,7 +282,7 @@ export function OnlinePlay({
         <button
           type="button"
           className={`btn btn--icon ${musicOpen ? 'btn--icon-active' : ''}`}
-          onClick={() => setMusicOpen((o) => !o)}
+          onClick={onToggleMusic}
         >
           <MusicNotes size={18} weight="fill" /> Música
           {state.playlist.length > 0 && (
