@@ -1,0 +1,24 @@
+{
+  "name": "battlenaval",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "build:shared": "npm -w @battlenaval/shared run build",
+    "build:server": "npm -w @battlenaval/server run build",
+    "build:client": "npm -w @battlenaval/client run build",
+    "build": "npm run build:shared && npm run build:server && npm run build:client",
+    "dev:server": "npm -w @battlenaval/server run dev",
+    "dev:client": "npm -w @battlenaval/client run dev",
+    "dev": "npm-run-all -p dev:server dev:client",
+    "typecheck": "npm -w @battlenaval/shared run typecheck && npm -w @battlenaval/server run typecheck && npm -w @battlenaval/client run typecheck"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.6.3"
+  }
+}
