@@ -93,6 +93,8 @@ export type OnlineState = {
   consumedPowerupKeys: Record<Player, Set<string>>;
   /** Opponent ship cells revealed to me by my radar. */
   radarReveals: Cell[];
+  /** Increments on each new radar reveal — drives the popup/sound feedback. */
+  radarPing: number;
 };
 
 export const initialOnlineState: OnlineState = {
@@ -116,6 +118,7 @@ export const initialOnlineState: OnlineState = {
   powerups: { A: [], B: [] },
   consumedPowerupKeys: { A: new Set(), B: new Set() },
   radarReveals: [],
+  radarPing: 0,
 };
 
 export type OnlineAction =
@@ -358,6 +361,7 @@ export function onlineReducer(
         powerups: { A: [], B: [] },
         consumedPowerupKeys: { A: new Set(), B: new Set() },
         radarReveals: [],
+        radarPing: 0,
         view: {
           kind: 'placement',
           selectedPieceId: fleet[0]?.id ?? null,
@@ -376,6 +380,7 @@ export function onlineReducer(
         powerups: action.powerups,
         consumedPowerupKeys: { A: new Set(), B: new Set() },
         radarReveals: [],
+        radarPing: 0,
         view: { kind: 'playing', lastShot: null },
       };
 
@@ -462,7 +467,11 @@ export function onlineReducer(
       ) {
         return state;
       }
-      return { ...state, radarReveals: [...state.radarReveals, action.cell] };
+      return {
+        ...state,
+        radarReveals: [...state.radarReveals, action.cell],
+        radarPing: state.radarPing + 1,
+      };
     }
 
     case 'game_over':

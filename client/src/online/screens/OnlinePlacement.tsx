@@ -157,6 +157,7 @@ export function OnlinePlacement({
           preview={preview}
           interactive
           shipsDraggable
+          dotGrid
           hiddenShipPieceId={drag.draggingPieceId}
           onCellPointerDown={drag.onCellPointerDown}
           onCellClick={(c) => {

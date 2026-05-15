@@ -144,6 +144,7 @@ export function Play({ state, view, dispatch }: Props) {
               revealShips={false}
               shotsOnBoard={shotsOnOppBoard}
               interactive
+              dotGrid
               onCellClick={handleShoot}
             />
           ) : (

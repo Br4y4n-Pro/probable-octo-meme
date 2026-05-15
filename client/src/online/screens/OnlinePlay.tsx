@@ -6,6 +6,7 @@ import {
   playBigExplosion,
   playEmote,
   playExplosion,
+  playRadar,
   playShot,
   playSplash,
 } from '../../sound.js';
@@ -15,6 +16,7 @@ import { TurnTimer } from '../components/TurnTimer.js';
 import { DisconnectBanner } from '../components/DisconnectBanner.js';
 import { Avatar } from '../../components/Avatar.js';
 import { SunkPopup } from '../../components/SunkPopup.js';
+import { RadarPopup } from '../../components/RadarPopup.js';
 import { EmoteIcon } from '../../components/EmoteIcon.js';
 import { SmileySticker } from '@phosphor-icons/react';
 
@@ -48,6 +50,11 @@ export function OnlinePlay({
   const [sunkAlert, setSunkAlert] = useState<{ name: string; id: number } | null>(
     null,
   );
+  const [radarAlert, setRadarAlert] = useState<{
+    x: number;
+    y: number;
+    id: number;
+  } | null>(null);
 
   // Auto-flip the board on turn change so the player always sees what matters:
   //   - opponent's turn → show MY board (defense) so I watch their shots land
@@ -79,6 +86,19 @@ export function OnlinePlay({
     const t = window.setTimeout(() => setSunkAlert(null), 1600);
     return () => window.clearTimeout(t);
   }, [view.lastShot]);
+
+  // Radar popup — fires when a radar powerup reveals an enemy ship cell.
+  // Crucial as feedback because collecting the powerup is a miss, which ends
+  // the turn and auto-flips the board away from the attack view.
+  useEffect(() => {
+    if (state.radarPing === 0) return;
+    const reveal = state.radarReveals[state.radarReveals.length - 1];
+    if (!reveal) return;
+    playRadar();
+    setRadarAlert({ x: reveal.x + 1, y: reveal.y + 1, id: Date.now() });
+    const t = window.setTimeout(() => setRadarAlert(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [state.radarPing]);
 
   // Play emote sound when one arrives
   useEffect(() => {
@@ -215,6 +235,7 @@ export function OnlinePlay({
               revealShips={false}
               shotsOnBoard={state.shotsByMe}
               interactive={myTurn}
+              dotGrid
               onCellClick={(c) => void handleShoot(c)}
               powerups={state.powerups[opp]}
               consumedPowerupKeys={state.consumedPowerupKeys[opp]}
@@ -255,6 +276,10 @@ export function OnlinePlay({
       />
 
       {sunkAlert && <SunkPopup key={sunkAlert.id} shipName={sunkAlert.name} />}
+
+      {radarAlert && (
+        <RadarPopup key={radarAlert.id} x={radarAlert.x} y={radarAlert.y} />
+      )}
     </div>
   );
 }

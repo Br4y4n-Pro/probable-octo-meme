@@ -160,6 +160,20 @@ export function playPlace(): void {
   tone(c, 340, 0.06, 0.12, 'sine');
 }
 
+export function playRadar(): void {
+  if (muted) return;
+  const c = getCtx();
+  if (!c) return;
+  // Sonar sweep — three rising pings.
+  [440, 660, 990].forEach((f, i) => {
+    window.setTimeout(() => {
+      const cc = getCtx();
+      if (!cc) return;
+      tone(cc, f, 0.2, 0.22, 'sine');
+    }, i * 95);
+  });
+}
+
 export function playEmote(): void {
   if (muted) return;
   const c = getCtx();

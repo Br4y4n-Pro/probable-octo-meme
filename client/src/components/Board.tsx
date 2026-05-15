@@ -26,6 +26,8 @@ export type BoardProps = {
   shipsDraggable?: boolean;
   /** Hide a ship visually while it's being dragged. */
   hiddenShipPieceId?: string | null;
+  /** Draw a small dot in empty cells (targeting grid). Off → bare water. */
+  dotGrid?: boolean;
   /** Powerups visible on this board. */
   powerups?: Powerup[];
   /** Cell keys ("x,y") of powerups that have already been used. */
@@ -55,6 +57,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
     interactive = false,
     shipsDraggable = false,
     hiddenShipPieceId = null,
+    dotGrid = false,
     powerups,
     consumedPowerupKeys,
     radarReveals,
@@ -158,10 +161,19 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
       const powerup = powerupByKey.get(key);
       const powerupConsumed =
         powerup !== undefined && (consumedPowerupKeys?.has(key) ?? false);
-      // Don't render the powerup icon if the cell has been shot — the shot
-      // marker takes precedence and consumedPowerupKeys.has handled it anyway.
-      const showPowerup = powerup !== undefined && !shot;
+      // Hide an un-collected powerup once its cell is shot, but keep showing a
+      // collected one (📡) on top of the miss marker so the player can see
+      // where they picked up a radar.
+      const showPowerup = powerup !== undefined && (!shot || powerupConsumed);
       const showRadar = radarSet.has(key) && !shot;
+      // A faint targeting dot in genuinely empty cells.
+      const showDot =
+        dotGrid &&
+        !showShip &&
+        !shot &&
+        !showPowerup &&
+        !showRadar &&
+        !inPreview;
 
       cells.push(
         <div
@@ -171,6 +183,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
           onMouseEnter={onCellHover ? () => onCellHover(c) : undefined}
           onPointerDown={onCellPointerDown ? (e) => onCellPointerDown(c, e) : undefined}
         >
+          {showDot && <span className="cell-dot" aria-hidden />}
           {showShip && <div className={shipClasses} style={shipStyle} />}
           {showFlame && (
             <span className="ship-flame" aria-hidden>
