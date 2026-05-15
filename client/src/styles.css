@@ -629,8 +629,22 @@ p { margin: 0.4rem 0; }
   border-color: var(--accent);
   transform: translateY(-2px);
 }
-.emote-btn__code { font-size: 1.55rem; line-height: 1.1; }
+.emote-btn__code {
+  display: inline-flex;
+  color: var(--accent);
+  transition: transform 0.18s;
+}
+.emote-btn:hover .emote-btn__code {
+  transform: scale(1.2) rotate(-8deg);
+}
 .emote-btn__label { font-size: 0.74rem; color: var(--muted); }
+
+/* Button with a leading icon (Emote button, etc.) */
+.btn--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 
 .emote-incoming {
   display: flex;
@@ -643,11 +657,31 @@ p { margin: 0.4rem 0; }
   padding: 0.9rem 1.4rem;
   margin: 1rem 0 0.5rem;
   box-shadow: 0 8px 24px -10px rgba(255, 122, 89, 0.45);
-  animation: pop-in 0.3s ease-out;
+  animation: emote-bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .emote-incoming__from { font-size: 0.85rem; color: var(--muted); }
-.emote-incoming__code { font-size: 2.6rem; line-height: 1; }
+.emote-incoming__code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  /* Wiggle a few times right after the bubble bounces in. */
+  animation: emote-wiggle 0.65s ease-in-out 0.45s 3;
+  transform-origin: center 70%;
+}
 .emote-incoming__label { font-weight: 600; }
+
+@keyframes emote-bounce-in {
+  0%   { opacity: 0; transform: scale(0.3) translateY(24px); }
+  55%  { opacity: 1; transform: scale(1.14) translateY(-5px); }
+  72%  { transform: scale(0.96) translateY(2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes emote-wiggle {
+  0%, 100% { transform: rotate(0) scale(1); }
+  25%      { transform: rotate(-15deg) scale(1.12); }
+  60%      { transform: rotate(15deg) scale(1.12); }
+}
 
 /* ─── Handoff & gameover ───────────────────────────────────── */
 .screen--handoff, .screen--gameover {
@@ -949,10 +983,26 @@ p { margin: 0.4rem 0; }
   margin: 0;
   z-index: 50;
   max-width: 240px;
-  animation: pop-in 0.25s ease-out;
+  /* Bounce in, then a gentle endless float so it feels lively. */
+  animation:
+    emote-bounce-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+    emote-toast-float 2.4s ease-in-out 0.6s infinite;
+}
+@keyframes emote-toast-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
 }
 @media (max-width: 700px) {
   .emote-toast { right: 0.75rem; top: 4rem; max-width: 200px; }
+}
+.emote-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .emote-incoming, .emote-toast { animation: emote-bounce-in 0.3s ease-out; }
+  .emote-incoming__code { animation: none; }
 }
 
 /* ─── Avatar ───────────────────────────────────────────────── */

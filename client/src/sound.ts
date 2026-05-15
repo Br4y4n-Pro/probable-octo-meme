@@ -164,10 +164,13 @@ export function playEmote(): void {
   if (muted) return;
   const c = getCtx();
   if (!c) return;
-  tone(c, 700, 0.08, 0.18, 'sine');
-  window.setTimeout(() => {
-    const c2 = getCtx();
-    if (!c2) return;
-    tone(c2, 950, 0.1, 0.18, 'sine');
-  }, 80);
+  // Cheerful 3-note rising jingle (E5 · A5 · D6) on a soft triangle wave.
+  const notes = [659.25, 880, 1174.66];
+  notes.forEach((f, i) => {
+    window.setTimeout(() => {
+      const cc = getCtx();
+      if (!cc) return;
+      tone(cc, f, 0.13, 0.22, 'triangle');
+    }, i * 75);
+  });
 }

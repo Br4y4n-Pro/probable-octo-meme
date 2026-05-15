@@ -3,7 +3,9 @@ import { otherPlayer, type Player } from '@battlenaval/shared';
 import type { Action, AppState, EmoteEntry } from '../state.js';
 import { Board } from '../components/Board.js';
 import { EmotePicker } from '../components/EmotePicker.js';
+import { EmoteIcon } from '../components/EmoteIcon.js';
 import { SunkPopup } from '../components/SunkPopup.js';
+import { SmileySticker } from '@phosphor-icons/react';
 import {
   playBigExplosion,
   playExplosion,
@@ -158,14 +160,14 @@ export function Play({ state, view, dispatch }: Props) {
       <div className="emote-bar">
         <button
           type="button"
-          className="btn"
+          className="btn btn--icon"
           onClick={() => setEmoteOpen((o) => !o)}
         >
-          💬 Emote
+          <SmileySticker size={18} weight="fill" /> Emote
         </button>
         {sentEmote && (
           <span className="emote-sent">
-            Enviado: <strong>{sentEmote.code}</strong> {sentEmote.label}
+            Enviado: <EmoteIcon code={sentEmote.code} size={18} /> {sentEmote.label}
           </span>
         )}
       </div>

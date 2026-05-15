@@ -15,6 +15,8 @@ import { TurnTimer } from '../components/TurnTimer.js';
 import { DisconnectBanner } from '../components/DisconnectBanner.js';
 import { Avatar } from '../../components/Avatar.js';
 import { SunkPopup } from '../../components/SunkPopup.js';
+import { EmoteIcon } from '../../components/EmoteIcon.js';
+import { SmileySticker } from '@phosphor-icons/react';
 
 type Props = {
   state: OnlineState;
@@ -155,7 +157,9 @@ export function OnlinePlay({
           <span className="emote-incoming__from">
             {state.opponentNickname || 'Rival'} te dice:
           </span>
-          <span className="emote-incoming__code">{state.incomingEmote.code}</span>
+          <span className="emote-incoming__code">
+            <EmoteIcon code={state.incomingEmote.code} size={44} />
+          </span>
           <span className="emote-incoming__label">{state.incomingEmote.label}</span>
         </div>
       )}
@@ -232,14 +236,14 @@ export function OnlinePlay({
       <div className="emote-bar">
         <button
           type="button"
-          className="btn"
+          className="btn btn--icon"
           onClick={() => setEmoteOpen((o) => !o)}
         >
-          💬 Emote
+          <SmileySticker size={18} weight="fill" /> Emote
         </button>
         {sentEmote && (
           <span className="emote-sent">
-            Enviado: <strong>{sentEmote.code}</strong> {sentEmote.label}
+            Enviado: <EmoteIcon code={sentEmote.code} size={18} /> {sentEmote.label}
           </span>
         )}
       </div>

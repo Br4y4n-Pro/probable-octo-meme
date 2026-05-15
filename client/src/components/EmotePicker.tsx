@@ -1,4 +1,5 @@
 import { EMOTES, type EmoteEntry } from '../state.js';
+import { EmoteIcon } from './EmoteIcon.js';
 
 type Props = {
   open: boolean;
@@ -22,7 +23,9 @@ export function EmotePicker({ open, onPick, onClose }: Props) {
               onClose();
             }}
           >
-            <span className="emote-btn__code">{e.code}</span>
+            <span className="emote-btn__code">
+              <EmoteIcon code={e.code} size={30} />
+            </span>
             <span className="emote-btn__label">{e.label}</span>
           </button>
         ))}

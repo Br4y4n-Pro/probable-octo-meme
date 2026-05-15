@@ -46,15 +46,17 @@ export type View =
 
 export type EmoteEntry = { code: string; label: string };
 
+// `code` is an icon identifier resolved by <EmoteIcon /> — it travels over
+// the socket, so it must stay a stable string.
 export const EMOTES: EmoteEntry[] = [
-  { code: '👋', label: 'Hola' },
-  { code: '😎', label: 'Easy' },
-  { code: '🎯', label: '¡Buen tiro!' },
-  { code: '🙏', label: 'Suerte' },
-  { code: '💥', label: 'Boom' },
-  { code: '🤔', label: 'Mmm...' },
-  { code: '🔥', label: 'En racha' },
-  { code: '🤝', label: 'GG' },
+  { code: 'hand-waving', label: 'Hola' },
+  { code: 'sunglasses', label: 'Easy' },
+  { code: 'target', label: '¡Buen tiro!' },
+  { code: 'hands-praying', label: 'Suerte' },
+  { code: 'bomb', label: 'Boom' },
+  { code: 'smiley-meh', label: 'Mmm...' },
+  { code: 'fire', label: 'En racha' },
+  { code: 'handshake', label: 'GG' },
 ];
 
 export type AppState = {

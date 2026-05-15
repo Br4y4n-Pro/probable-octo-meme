@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { Action, AppState } from '../state.js';
 import { playEmote } from '../sound.js';
+import { EmoteIcon } from '../components/EmoteIcon.js';
 
 type Props = {
   state: AppState;
@@ -32,7 +33,7 @@ export function Handoff({ state, view, dispatch }: Props) {
               Jugador {incomingEmote.from} te dice:
             </span>
             <span className="emote-incoming__code">
-              {incomingEmote.entry.code}
+              <EmoteIcon code={incomingEmote.entry.code} size={52} />
             </span>
             <span className="emote-incoming__label">
               {incomingEmote.entry.label}
