@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react';
+import { forwardRef, useMemo, type CSSProperties } from 'react';
 import {
   cellKey,
   type Board as BoardModel,
@@ -20,7 +20,12 @@ export type BoardProps = {
   preview?: { cells: Cell[]; valid: boolean } | null;
   onCellClick?: (cell: Cell) => void;
   onCellHover?: (cell: Cell | null) => void;
+  onCellPointerDown?: (cell: Cell, e: React.PointerEvent) => void;
   interactive?: boolean;
+  /** Mark placed-ship cells as draggable (cursor: grab). */
+  shipsDraggable?: boolean;
+  /** Hide a ship visually while it's being dragged. */
+  hiddenShipPieceId?: string | null;
   /** Powerups visible on this board. */
   powerups?: Powerup[];
   /** Cell keys ("x,y") of powerups that have already been used. */
@@ -37,19 +42,25 @@ type CellShipInfo = {
   hasRight: boolean;
 };
 
-export function Board({
-  board,
-  size,
-  revealShips,
-  shotsOnBoard,
-  preview = null,
-  onCellClick,
-  onCellHover,
-  interactive = false,
-  powerups,
-  consumedPowerupKeys,
-  radarReveals,
-}: BoardProps) {
+export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
+  {
+    board,
+    size,
+    revealShips,
+    shotsOnBoard,
+    preview = null,
+    onCellClick,
+    onCellHover,
+    onCellPointerDown,
+    interactive = false,
+    shipsDraggable = false,
+    hiddenShipPieceId = null,
+    powerups,
+    consumedPowerupKeys,
+    radarReveals,
+  },
+  ref,
+) {
   const powerupByKey = useMemo(() => {
     const m = new Map<string, Powerup>();
     if (powerups) for (const p of powerups) m.set(cellKey(p.cell), p);
@@ -96,13 +107,21 @@ export function Board({
 
       const cellClasses: string[] = ['cell'];
       if (interactive) cellClasses.push('cell--interactive');
+      if (
+        shipsDraggable &&
+        info &&
+        (revealShips || info.ship.sunk) &&
+        info.ship.pieceId !== hiddenShipPieceId
+      ) {
+        cellClasses.push('cell--draggable');
+      }
       if (inPreview) {
         cellClasses.push(preview!.valid ? 'cell--preview-valid' : 'cell--preview-invalid');
       }
 
       const shipStyle: CSSProperties = {};
       let shipClasses = '';
-      if (showShip && info) {
+      if (showShip && info && info.ship.pieceId !== hiddenShipPieceId) {
         const r = '40%';
         const o = '11%';
         const tl = !info.hasUp && !info.hasLeft ? r : '0';
@@ -150,6 +169,7 @@ export function Board({
           className={cellClasses.join(' ')}
           onClick={onCellClick ? () => onCellClick(c) : undefined}
           onMouseEnter={onCellHover ? () => onCellHover(c) : undefined}
+          onPointerDown={onCellPointerDown ? (e) => onCellPointerDown(c, e) : undefined}
         >
           {showShip && <div className={shipClasses} style={shipStyle} />}
           {showFlame && (
@@ -195,6 +215,7 @@ export function Board({
 
   return (
     <div
+      ref={ref}
       className="board"
       style={style}
       onMouseLeave={onCellHover ? () => onCellHover(null) : undefined}
@@ -202,4 +223,4 @@ export function Board({
       {cells}
     </div>
   );
-}
+});

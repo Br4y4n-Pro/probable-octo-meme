@@ -167,6 +167,7 @@ export type OnlineAction =
   | { type: 'place_local'; cell: Cell }
   | { type: 'remove_local'; pieceId: string }
   | { type: 'rotate_placed_local'; pieceId: string }
+  | { type: 'move_placed_local'; pieceId: string; newOrigin: Cell }
   | { type: 'auto_place_local'; ships: ShipPlacementInput[] }
   | { type: 'reset_local_board' }
   // Submitted states
@@ -562,6 +563,21 @@ export function onlineReducer(
         }
       }
       return state;
+    }
+
+    case 'move_placed_local': {
+      if (state.view.kind !== 'placement' || !state.session) return state;
+      const existing = state.myBoard.ships.find((s) => s.pieceId === action.pieceId);
+      if (!existing) return state;
+      const piece = findPiece(state.session.size, action.pieceId);
+      if (!piece) return state;
+      const removed = removeShip(state.myBoard, action.pieceId);
+      const v = validatePlacement(removed, piece, action.newOrigin, existing.rotation);
+      if (!v.ok) return state;
+      return {
+        ...state,
+        myBoard: placeShip(removed, piece, action.newOrigin, existing.rotation),
+      };
     }
 
     case 'auto_place_local': {

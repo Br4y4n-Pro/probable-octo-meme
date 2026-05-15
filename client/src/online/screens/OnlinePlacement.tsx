@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   getFleet,
   shipCells,
@@ -8,6 +8,7 @@ import {
 } from '@battlenaval/shared';
 import { Board } from '../../components/Board.js';
 import { MiniShape } from '../../components/MiniShape.js';
+import { useShipDrag } from '../../components/useShipDrag.js';
 import { paletteForShip } from '../../ship-styles.js';
 import { playPlace } from '../../sound.js';
 import type { OnlineAction, OnlineState, OnlineView } from '../state.js';
@@ -44,6 +45,17 @@ export function OnlinePlacement({
   const rotation = placementView?.rotation ?? 0;
 
   const [hovered, setHovered] = useState<Cell | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const drag = useShipDrag({
+    board,
+    fleet,
+    size,
+    getBoardEl: () => boardRef.current,
+    onMove: (pieceId, newOrigin) => {
+      playPlace();
+      dispatch({ type: 'move_placed_local', pieceId, newOrigin });
+    },
+  });
 
   useEffect(() => {
     if (view.kind !== 'placement') return;
@@ -57,12 +69,13 @@ export function OnlinePlacement({
     return () => window.removeEventListener('keydown', onKey);
   }, [dispatch, view.kind]);
 
-  const preview = useMemo(() => {
+  const hoverPreview = useMemo(() => {
     if (!selectedPiece || !hovered || view.kind !== 'placement') return null;
     const cells = shipCells(selectedPiece, hovered, rotation);
     const v = validatePlacement(board, selectedPiece, hovered, rotation);
     return { cells, valid: v.ok };
   }, [selectedPiece, hovered, rotation, board, view.kind]);
+  const preview = drag.preview ?? hoverPreview;
 
   const allPlaced = board.ships.length === fleet.length;
   const remaining = fleet.length - board.ships.length;
@@ -136,13 +149,18 @@ export function OnlinePlacement({
 
       <div className="placement-layout">
         <Board
+          ref={boardRef}
           board={board}
           size={size}
           revealShips
           shotsOnBoard={{}}
           preview={preview}
           interactive
+          shipsDraggable
+          hiddenShipPieceId={drag.draggingPieceId}
+          onCellPointerDown={drag.onCellPointerDown}
           onCellClick={(c) => {
+            if (drag.consumeJustDragged()) return;
             const occupying = board.ships.find((s) =>
               s.cells.some((sc) => sc.x === c.x && sc.y === c.y),
             );
@@ -224,11 +242,11 @@ export function OnlinePlacement({
           </ul>
           <p className="palette__hint">
             {selectedPiece
-              ? 'Haz clic en el tablero para colocar. R rota.'
+              ? 'Haz clic para colocar. R rota.'
               : '¡Flota completa! Pulsa Listo.'}
             <br />
             <span className="muted">
-              Tip: clic sobre un barco ya puesto para rotarlo en el sitio.
+              Tip: clic en un barco lo rota · arrástralo para moverlo.
             </span>
           </p>
         </aside>

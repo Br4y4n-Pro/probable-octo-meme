@@ -299,6 +299,12 @@ p { margin: 0.4rem 0; }
 .cell--interactive:hover { background: rgba(255, 122, 89, 0.18); }
 .cell--preview-valid { background: var(--valid) !important; }
 .cell--preview-invalid { background: var(--invalid) !important; }
+/* When ships can be moved, hint the affordance on their cells. */
+.cell--draggable { cursor: grab; }
+.cell--draggable:active { cursor: grabbing; }
+/* Prevent the OS from interpreting touch-drag as a scroll while we're moving
+   a ship on mobile. */
+.cell--draggable, .cell--interactive { touch-action: none; }
 
 /* Ship piece — colored hull */
 .ship-piece {

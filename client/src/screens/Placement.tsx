@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   getFleet,
   shipCells,
@@ -9,6 +9,7 @@ import {
 import type { Action, AppState } from '../state.js';
 import { Board } from '../components/Board.js';
 import { MiniShape } from '../components/MiniShape.js';
+import { useShipDrag } from '../components/useShipDrag.js';
 import { paletteForShip } from '../ship-styles.js';
 import { playPlace } from '../sound.js';
 
@@ -30,6 +31,17 @@ export function Placement({ state, view, dispatch }: Props) {
     : null;
 
   const [hovered, setHovered] = useState<Cell | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const drag = useShipDrag({
+    board,
+    fleet,
+    size: state.size,
+    getBoardEl: () => boardRef.current,
+    onMove: (pieceId, newOrigin) => {
+      playPlace();
+      dispatch({ type: 'move_placed_ship', pieceId, newOrigin });
+    },
+  });
 
   // Keyboard rotate
   useEffect(() => {
@@ -43,12 +55,14 @@ export function Placement({ state, view, dispatch }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [dispatch]);
 
-  const preview = useMemo(() => {
+  const hoverPreview = useMemo(() => {
     if (!selectedPiece || !hovered) return null;
     const cells = shipCells(selectedPiece, hovered, view.rotation);
     const validation = validatePlacement(board, selectedPiece, hovered, view.rotation);
     return { cells, valid: validation.ok };
   }, [selectedPiece, hovered, view.rotation, board]);
+  // While dragging, the drag preview takes precedence over the hover preview.
+  const preview = drag.preview ?? hoverPreview;
 
   const allPlaced = board.ships.length === fleet.length;
   const remaining = fleet.length - board.ships.length;
@@ -93,13 +107,19 @@ export function Placement({ state, view, dispatch }: Props) {
 
       <div className="placement-layout">
         <Board
+          ref={boardRef}
           board={board}
           size={state.size}
           revealShips
           shotsOnBoard={{}}
           preview={preview}
           interactive={!!selectedPiece}
+          shipsDraggable
+          hiddenShipPieceId={drag.draggingPieceId}
+          onCellPointerDown={drag.onCellPointerDown}
           onCellClick={(c) => {
+            // Swallow the click that follows a successful drag.
+            if (drag.consumeJustDragged()) return;
             // If the click lands on a cell occupied by an already-placed ship,
             // try to rotate that ship in place instead of placing a new one.
             const occupying = board.ships.find((s) =>
@@ -187,7 +207,7 @@ export function Placement({ state, view, dispatch }: Props) {
               : '¡Flota completa! Pulsa Listo para continuar.'}
             <br />
             <span className="muted">
-              Tip: haz clic sobre un barco ya colocado para rotarlo en el sitio.
+              Tip: clic sobre un barco lo rota. Arrastra para moverlo.
             </span>
           </p>
         </aside>

@@ -72,6 +72,7 @@ export type Action =
   | { type: 'place_at'; cell: Cell }
   | { type: 'remove_ship'; pieceId: string }
   | { type: 'rotate_placed_ship'; pieceId: string }
+  | { type: 'move_placed_ship'; pieceId: string; newOrigin: Cell }
   | { type: 'auto_place' }
   | { type: 'reset_player_board' }
   | { type: 'confirm_placement' }
@@ -192,6 +193,24 @@ export function reducer(state: AppState, action: Action): AppState {
       }
       // No rotation fits — leave the ship as it was
       return state;
+    }
+
+    case 'move_placed_ship': {
+      if (state.view.kind !== 'placement') return state;
+      const { currentPlayer } = state.view;
+      const board = state.game.boards[currentPlayer];
+      const existing = board.ships.find((s) => s.pieceId === action.pieceId);
+      if (!existing) return state;
+      const piece = findPiece(state.size, action.pieceId);
+      if (!piece) return state;
+      const removed = removeShip(board, action.pieceId);
+      const v = validatePlacement(removed, piece, action.newOrigin, existing.rotation);
+      if (!v.ok) return state;
+      const placed = placeShip(removed, piece, action.newOrigin, existing.rotation);
+      return {
+        ...state,
+        game: setPlayerBoard(state.game, currentPlayer, placed),
+      };
     }
 
     case 'auto_place': {
