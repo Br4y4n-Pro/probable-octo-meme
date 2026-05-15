@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Batalla Naval">
+  <defs>
+    <linearGradient id="bn-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff8e6e"/>
+      <stop offset="55%" stop-color="#ff5a3a"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="bn-shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.35)"/>
+      <stop offset="60%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bn-bg)"/>
+  <rect width="64" height="64" rx="14" fill="url(#bn-shine)"/>
+  <g
+    stroke="#fff"
+    stroke-width="3.6"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="drop-shadow(0 2px 2px rgba(0,0,0,0.25))"
+  >
+    <circle cx="32" cy="13.5" r="4.6"/>
+    <line x1="32" y1="18.5" x2="32" y2="50"/>
+    <line x1="24" y1="24" x2="40" y2="24"/>
+    <path d="M 15 37 Q 15 51 32 51 Q 49 51 49 37"/>
+    <path d="M 13 33 L 17 37 L 22 33"/>
+    <path d="M 51 33 L 47 37 L 42 33"/>
+  </g>
+</svg>
