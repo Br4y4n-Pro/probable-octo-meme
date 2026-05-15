@@ -242,8 +242,16 @@ p { margin: 0.4rem 0; }
   border-bottom: 1px solid var(--border);
 }
 .topbar__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.topbar__meta { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.topbar__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 .meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   background: var(--panel-2);
   border: 1px solid var(--border);
   padding: 0.4rem 0.85rem;
