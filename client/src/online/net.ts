@@ -19,9 +19,15 @@ import type {
   ShootRes,
 } from '@battlenaval/shared';
 
+// Resolve the server URL:
+//   1. VITE_SERVER_URL build-time override (split deploys)
+//   2. In dev (Vite serves on :5173, server on :3001), point at :3001
+//   3. In prod assume same-origin (server also serves this static bundle)
 export const SERVER_URL =
   (import.meta.env.VITE_SERVER_URL as string | undefined) ??
-  `${window.location.protocol}//${window.location.hostname}:3001`;
+  (import.meta.env.DEV
+    ? `${window.location.protocol}//${window.location.hostname}:3001`
+    : window.location.origin);
 
 export type ServerSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 

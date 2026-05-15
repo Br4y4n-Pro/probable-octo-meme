@@ -2,7 +2,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { LeaderboardEntry } from '@battlenaval/shared';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+// `DATA_DIR` env points the score store at a persistent volume in prod.
+// Falls back to ./data relative to cwd for local dev.
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(process.cwd(), 'data');
 const FILE = path.join(DATA_DIR, 'scores.json');
 
 type ScoresMap = Record<string, number>;

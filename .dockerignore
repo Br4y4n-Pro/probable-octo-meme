@@ -1,0 +1,28 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+fly.toml
+README.md
+
+# Build outputs and deps — let the builder produce fresh ones
+**/node_modules
+**/dist
+**/.vite
+
+# Persistent data — comes from the mounted volume, not the image
+server/data
+
+# Local env / secrets
+**/.env
+**/.env.*
+
+# Editor / OS noise
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+*.log
+
+# CI / docs that don't belong in the runtime image
+.github
